@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFC East - Fewest Points Allowed</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid white;
+        }
+
+        .logo-container {
+            margin-bottom: 15px;
+        }
+
+        .logo-container img {
+            height: 80px;
+            width: auto;
+        }
+
+        .title {
+            color: white;
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .teams-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .team-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-top: 3px solid white;
+            border-bottom: 3px solid white;
+            position: relative;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .team-row:not(:last-child) {
+            border-bottom: none;
+        }
+
+        .team-logo {
+            height: 160%;
+            max-height: 300px;
+            max-width: 300px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .points {
+            color: white;
+            font-size: 120px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 32px;
+            }
+            .subtitle {
+                font-size: 14px;
+            }
+            .points {
+                font-size: 80px;
+            }
+            .team-logo {
+                max-height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-container">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="6ABC Logo" id="network-logo">
+        </div>
+        <div class="title">Fewest Points Allowed</div>
+        <div class="subtitle">In the NFC East Entering Week 16</div>
+    </div>
+
+    <div class="teams-container" id="teams-container">
+        <!-- Teams will be inserted here by JavaScript -->
+    </div>
+
+    <script>
+        // Fetch and parse the YAML file
+        fetch('nfceast.yml')
+            .then(response => response.text())
+            .then(yamlText => {
+                const data = jsyaml.load(yamlText);
+                const teams = data.nfc_east;
+
+                // Sort teams by points_against (ascending - fewest first)
+                teams.sort((a, b) => a.points_against - b.points_against);
+
+                // Get container
+                const container = document.getElementById('teams-container');
+
+                // Create team rows
+                teams.forEach((team, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'team-row';
+                    row.style.backgroundColor = team.color;
+                    // Set z-index so teams with fewer points appear on top
+                    // Higher z-index = better (fewer points allowed)
+                    row.style.zIndex = teams.length - index;
+
+                    const logo = document.createElement('img');
+                    logo.src = team.logo;
+                    logo.alt = `${team.team} Logo`;
+                    logo.className = 'team-logo';
+
+                    const points = document.createElement('div');
+                    points.className = 'points';
+                    points.textContent = team.points_against;
+
+                    row.appendChild(logo);
+                    row.appendChild(points);
+                    container.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading YAML:', error);
+                document.getElementById('teams-container').innerHTML =
+                    '<div style="color: white; text-align: center; padding: 50px;">Error loading data</div>';
+            });
+    </script>
+</body>
+</html>
