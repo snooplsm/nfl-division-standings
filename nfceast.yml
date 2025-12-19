@@ -12,6 +12,7 @@ nfc_east:
     streak: "W1"
     logo: "https://upload.wikimedia.org/wikipedia/en/8/8e/Philadelphia_Eagles_logo.svg"
     color: "#004C54"
+    income_tax: 6.5
 
   - team: Cowboys
     rank: 2
@@ -26,6 +27,7 @@ nfc_east:
     streak: "L2"
     logo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Dallas_Cowboys.svg"
     color: "#002A5C"
+    income_tax: 0
 
   - team: Commanders
     rank: 3
@@ -40,6 +42,7 @@ nfc_east:
     streak: "W1"
     logo: "https://upload.wikimedia.org/wikipedia/commons/0/0c/Washington_Commanders_logo.svg"
     color: "#5A1414"
+    income_tax: 5.75
 
   - team: Giants
     rank: 4
@@ -54,3 +57,4 @@ nfc_east:
     streak: "L8"
     logo: "https://upload.wikimedia.org/wikipedia/commons/6/60/New_York_Giants_logo.svg"
     color: "#0B2265"
+    income_tax: 10.75

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFC East - Income Tax Rates</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #333;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .container {
+            width: 1080px;
+            height: 1920px;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid white;
+            position: relative;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .stat-select {
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid white;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .export-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: white;
+            color: #1e3a8a;
+            border: 2px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            transition: all 0.3s;
+        }
+
+        .export-btn:hover {
+            background: #1e3a8a;
+            color: white;
+        }
+
+        .logo-container {
+            margin-bottom: 15px;
+        }
+
+        .logo-container img {
+            height: 117px;
+            width: auto;
+        }
+
+        .title {
+            color: white;
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            color: white;
+            font-size: 27px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .teams-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .team-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            border-top: 3px solid white;
+            border-bottom: 3px solid white;
+            position: relative;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .team-row:not(:last-child) {
+            border-bottom: none;
+        }
+
+        .team-logo {
+            height: 110%;
+            width: 40%;
+            object-fit: contain;
+        }
+
+        .points {
+            color: white;
+            font-size: 120px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 32px;
+            }
+            .subtitle {
+                font-size: 14px;
+            }
+            .points {
+                font-size: 80px;
+            }
+            .team-logo {
+                height: 110%;
+                width: 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <div class="header">
+        <div class="controls">
+            <select id="stat-select" class="stat-select">
+                <option value="income_tax">Income Tax Rates</option>
+                <option value="points_against">Fewest Points Allowed</option>
+                <option value="points_for">Most Points Scored</option>
+                <option value="wins">Most Wins</option>
+                <option value="win_pct">Win Percentage</option>
+            </select>
+            <button id="export-btn" class="export-btn">Export PNG</button>
+        </div>
+        <div class="logo-container">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="6ABC Logo" id="network-logo">
+        </div>
+        <div class="title" id="page-title">Income Tax Rates</div>
+        <div class="subtitle" id="page-subtitle">In the NFC East</div>
+    </div>
+
+    <div class="teams-container" id="teams-container">
+        <!-- Teams will be inserted here by JavaScript -->
+    </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js"></script>
+    <script>
+        let teamsData = [];
+
+        // Stat configuration
+        const statConfig = {
+            income_tax: {
+                title: 'Income Tax Rates',
+                subtitle: 'In the NFC East',
+                suffix: '%',
+                sortAscending: true
+            },
+            points_against: {
+                title: 'Fewest Points Allowed',
+                subtitle: 'In the NFC East Entering Week 16',
+                suffix: '',
+                sortAscending: true
+            },
+            points_for: {
+                title: 'Most Points Scored',
+                subtitle: 'In the NFC East Entering Week 16',
+                suffix: '',
+                sortAscending: false
+            },
+            wins: {
+                title: 'Most Wins',
+                subtitle: 'In the NFC East Entering Week 16',
+                suffix: '',
+                sortAscending: false
+            },
+            win_pct: {
+                title: 'Win Percentage',
+                subtitle: 'In the NFC East Entering Week 16',
+                suffix: '',
+                sortAscending: false
+            }
+        };
+
+        function renderTeams(stat) {
+            const config = statConfig[stat];
+            const teams = [...teamsData];
+
+            // Update title and subtitle
+            document.getElementById('page-title').textContent = config.title;
+            document.getElementById('page-subtitle').textContent = config.subtitle;
+
+            // Sort teams
+            teams.sort((a, b) => {
+                const diff = a[stat] - b[stat];
+                return config.sortAscending ? diff : -diff;
+            });
+
+            // Clear container
+            const container = document.getElementById('teams-container');
+            container.innerHTML = '';
+
+            // Create team rows
+            teams.forEach((team, index) => {
+                const row = document.createElement('div');
+                row.className = 'team-row';
+                row.style.backgroundColor = team.color;
+                row.style.zIndex = teams.length - index;
+
+                const logo = document.createElement('img');
+                logo.crossOrigin = 'anonymous';
+                logo.src = team.logo;
+                logo.alt = `${team.team} Logo`;
+                logo.className = 'team-logo';
+
+                const points = document.createElement('div');
+                points.className = 'points';
+                let value = team[stat];
+
+                // Format the value based on stat type
+                if (stat === 'win_pct') {
+                    value = (value * 100).toFixed(1) + '%';
+                } else {
+                    value = value + config.suffix;
+                }
+
+                points.textContent = value;
+
+                row.appendChild(logo);
+                row.appendChild(points);
+                container.appendChild(row);
+            });
+        }
+
+        // Export to PNG function
+        function exportToPNG() {
+            const exportBtn = document.getElementById('export-btn');
+
+            // Hide controls before export
+            document.querySelector('.controls').style.display = 'none';
+            exportBtn.textContent = 'Exporting...';
+            exportBtn.disabled = true;
+
+            const containerElement = document.querySelector('.container');
+
+            // Wait a bit for layout to settle
+            setTimeout(() => {
+                domtoimage.toPng(containerElement, {
+                    width: 1080,
+                    height: 1920,
+                    quality: 1.0,
+                    style: {
+                        margin: '0',
+                        padding: '0'
+                    }
+                }).then(function(dataUrl) {
+                    // Create download link
+                    const link = document.createElement('a');
+                    const now = new Date();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const year = String(now.getFullYear()).slice(-2);
+                    const filename = `NFCEastMeme-${month}-${day}-${year}.png`;
+
+                    link.download = filename;
+                    link.href = dataUrl;
+                    link.click();
+
+                    // Show controls again
+                    document.querySelector('.controls').style.display = 'flex';
+                    exportBtn.textContent = 'Export PNG';
+                    exportBtn.disabled = false;
+                }).catch(function(error) {
+                    console.error('Export error:', error);
+                    document.querySelector('.controls').style.display = 'flex';
+                    exportBtn.textContent = 'Export PNG';
+                    exportBtn.disabled = false;
+                    alert('Error exporting image. Please try again.');
+                });
+            }, 300);
+        }
+
+        // Fetch and parse the YAML file
+        fetch('nfceast.yml')
+            .then(response => response.text())
+            .then(yamlText => {
+                const data = jsyaml.load(yamlText);
+                teamsData = data.nfc_east;
+
+                // Initial render
+                renderTeams('income_tax');
+
+                // Add event listeners
+                document.getElementById('stat-select').addEventListener('change', (e) => {
+                    renderTeams(e.target.value);
+                });
+
+                document.getElementById('export-btn').addEventListener('click', exportToPNG);
+            })
+            .catch(error => {
+                console.error('Error loading YAML:', error);
+                document.getElementById('teams-container').innerHTML =
+                    '<div style="color: white; text-align: center; padding: 50px;">Error loading data</div>';
+            });
+    </script>
+</body>
+</html>
