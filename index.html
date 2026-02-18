@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC East - Fewest Points Allowed</title>
+    <title>NFC East - Custom Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <style>
         * {
@@ -14,7 +14,18 @@
 
         body {
             font-family: 'Arial Black', 'Arial Bold', sans-serif;
-            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #333;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .container {
+            width: 1080px;
+            height: 1920px;
             display: flex;
             flex-direction: column;
             background: #000;
@@ -26,6 +37,259 @@
             padding: 20px;
             text-align: center;
             border-bottom: 3px solid white;
+            position: relative;
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .edit-btn, .export-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: white;
+            color: #1e3a8a;
+            border: 2px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            transition: all 0.3s;
+        }
+
+        .edit-btn:hover, .export-btn:hover {
+            background: #1e3a8a;
+            color: white;
+        }
+
+        .custom-panel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e1e1e;
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            padding: 25px;
+            z-index: 1000;
+            min-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
+        .custom-panel.visible {
+            display: block;
+        }
+
+        .custom-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+        }
+
+        .custom-overlay.visible {
+            display: block;
+        }
+
+        .custom-panel h3 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .custom-title-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .custom-title-row input {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: white;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .custom-team-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .custom-team-row:active {
+            cursor: grabbing;
+        }
+
+        .custom-team-row.dragging {
+            opacity: 0.4;
+        }
+
+        .custom-team-row.drag-over {
+            border-top: 3px solid #3b82f6;
+        }
+
+        .custom-team-row .drag-handle {
+            color: #888;
+            font-size: 18px;
+            cursor: grab;
+            padding: 0 5px;
+        }
+
+        .custom-team-row .team-name {
+            color: white;
+            font-weight: bold;
+            width: 130px;
+            font-size: 14px;
+        }
+
+        .custom-team-row input {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: white;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .custom-sort-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        .custom-sort-row button {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 2px solid #3b82f6;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: #2a2a2a;
+            color: #3b82f6;
+            transition: all 0.2s;
+        }
+
+        .custom-sort-row button:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .custom-apply-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .custom-apply-btn:hover {
+            background: #2563eb;
+        }
+
+        .custom-logo-section {
+            margin-bottom: 15px;
+        }
+
+        .custom-logo-section > label {
+            color: #ccc;
+            font-size: 13px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .logo-group {
+            margin-bottom: 8px;
+        }
+
+        .logo-group-label {
+            color: #999;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .logo-group-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .logo-toggle {
+            padding: 5px 10px;
+            font-size: 11px;
+            font-weight: bold;
+            border: 2px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: #aaa;
+            cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .logo-toggle:hover {
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        .logo-toggle.active {
+            border-color: #3b82f6;
+            background: #3b82f6;
+            color: white;
+        }
+
+        .custom-logo-url {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: white;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .custom-logo-url.visible {
+            display: block;
         }
 
         .logo-container {
@@ -33,7 +297,7 @@
         }
 
         .logo-container img {
-            height: 80px;
+            height: 140px;
             width: auto;
         }
 
@@ -49,14 +313,14 @@
 
         .subtitle {
             color: white;
-            font-size: 24px;
+            font-size: 27px;
             font-weight: 700;
             letter-spacing: 3px;
             text-transform: uppercase;
         }
 
         .teams-container {
-            flex: 1;
+            flex: 4;
             display: flex;
             flex-direction: column;
         }
@@ -78,10 +342,8 @@
         }
 
         .team-logo {
-            height: 160%;
-            max-height: 300px;
-            max-width: 300px;
-            width: auto;
+            height: 110%;
+            width: 40%;
             object-fit: contain;
         }
 
@@ -108,60 +370,343 @@
                 font-size: 80px;
             }
             .team-logo {
-                max-height: 100px;
+                height: 110%;
+                width: 40%;
             }
         }
     </style>
 </head>
 <body>
+    <div class="custom-overlay" id="custom-overlay"></div>
+    <div class="custom-panel" id="custom-panel">
+        <h3>Custom Values</h3>
+        <div class="custom-title-row">
+            <input type="text" id="custom-title" placeholder="Title (e.g. Rushing Yards)">
+            <input type="text" id="custom-subtitle" placeholder="Subtitle (e.g. In the NFC East)">
+        </div>
+        <div class="custom-logo-section">
+            <label>Header Logo</label>
+            <div class="logo-group">
+                <div class="logo-group-label">Philadelphia</div>
+                <div class="logo-group-buttons">
+                    <button class="logo-toggle active" data-url="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" data-color="#1e3a8a,#3b82f6">6ABC</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/0/05/Fts-philadelphia-a.svg" data-color="#003a70,#0064b0">FOX 29</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/5/5b/WPHL_CW_2024_%282%29.svg" data-color="#2d2d6e,#5c5cb8">PHL 17</button>
+                </div>
+            </div>
+            <div class="logo-group">
+                <div class="logo-group-label">Washington</div>
+                <div class="logo-group-buttons">
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/1/1e/WRC-TV_2023.svg" data-color="#b0c4de,#f0f4f8">NBC 4</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/f/f8/Fts-washington-dc-a.svg" data-color="#003a70,#0064b0">FOX 5</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/f/ff/WJLA_ABC_7_Fall_2021.svg" data-color="#b71c1c,#e53935">ABC 7</button>
+                </div>
+            </div>
+            <div class="logo-group">
+                <div class="logo-group-label">Dallas</div>
+                <div class="logo-group-buttons">
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/e/e0/KXAS_2023.svg" data-color="#0c2340,#1a5dab">NBC 5</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/c/c7/WFAA_%282021%29.svg" data-color="#c62828,#ef5350">ABC 8</button>
+                </div>
+            </div>
+            <div class="logo-group">
+                <div class="logo-group-label">New York</div>
+                <div class="logo-group-buttons">
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg" data-color="#0d47a1,#1976d2">ABC 7</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/8/8d/WNBC_2023.svg" data-color="#b0c4de,#f0f4f8">NBC 4</button>
+                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/3/3f/Spectrum_News_NY1_%282023%29.svg" data-color="#1a1a2e,#e63946">NY1</button>
+                </div>
+            </div>
+            <div class="logo-group">
+                <div class="logo-group-label">Custom</div>
+                <div class="logo-group-buttons">
+                    <button class="logo-toggle" data-url="custom" data-color="#1e3a8a,#3b82f6">URL...</button>
+                </div>
+                <input type="text" id="custom-logo-url" class="custom-logo-url" placeholder="Enter SVG URL...">
+            </div>
+        </div>
+        <div id="custom-team-inputs"></div>
+        <div class="custom-sort-row">
+            <button id="sort-asc-btn">Sort Ascending</button>
+            <button id="sort-desc-btn">Sort Descending</button>
+        </div>
+        <button class="custom-apply-btn" id="custom-apply-btn">Apply</button>
+    </div>
+    <div class="container">
     <div class="header">
+        <div class="controls">
+            <button id="edit-btn" class="edit-btn">Edit</button>
+            <button id="export-btn" class="export-btn">Export PNG</button>
+        </div>
         <div class="logo-container">
             <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="6ABC Logo" id="network-logo">
         </div>
-        <div class="title">Fewest Points Allowed</div>
-        <div class="subtitle">In the NFC East Entering Week 16</div>
+        <div class="title" id="page-title">Custom</div>
+        <div class="subtitle" id="page-subtitle"></div>
     </div>
 
     <div class="teams-container" id="teams-container">
         <!-- Teams will be inserted here by JavaScript -->
     </div>
+    </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js"></script>
     <script>
+        let teamsData = [];
+
+        // Custom panel state
+        let customOrder = []; // team names in drag order
+        let customValues = {}; // team -> value
+        let customDragSrc = null;
+
+        function openCustomPanel() {
+            const panel = document.getElementById('custom-panel');
+            const overlay = document.getElementById('custom-overlay');
+            panel.classList.add('visible');
+            overlay.classList.add('visible');
+
+            // Initialize order if empty
+            if (customOrder.length === 0) {
+                customOrder = teamsData.map(t => t.team);
+            }
+
+            renderCustomInputs();
+        }
+
+        function closeCustomPanel() {
+            document.getElementById('custom-panel').classList.remove('visible');
+            document.getElementById('custom-overlay').classList.remove('visible');
+        }
+
+        function renderCustomInputs() {
+            const container = document.getElementById('custom-team-inputs');
+            container.innerHTML = '';
+
+            customOrder.forEach((teamName, idx) => {
+                const team = teamsData.find(t => t.team === teamName);
+                if (!team) return;
+
+                const row = document.createElement('div');
+                row.className = 'custom-team-row';
+                row.style.background = team.color;
+                row.draggable = true;
+                row.dataset.team = teamName;
+                row.dataset.index = idx;
+
+                const handle = document.createElement('span');
+                handle.className = 'drag-handle';
+                handle.textContent = '\u2630';
+
+                const name = document.createElement('span');
+                name.className = 'team-name';
+                name.textContent = teamName;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = 'Value';
+                input.value = customValues[teamName] || '';
+                input.addEventListener('input', (e) => {
+                    customValues[teamName] = e.target.value;
+                });
+
+                row.appendChild(handle);
+                row.appendChild(name);
+                row.appendChild(input);
+                container.appendChild(row);
+
+                // Drag events
+                row.addEventListener('dragstart', (e) => {
+                    customDragSrc = idx;
+                    row.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                row.addEventListener('dragend', () => {
+                    row.classList.remove('dragging');
+                    container.querySelectorAll('.custom-team-row').forEach(r => r.classList.remove('drag-over'));
+                });
+                row.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    container.querySelectorAll('.custom-team-row').forEach(r => r.classList.remove('drag-over'));
+                    row.classList.add('drag-over');
+                });
+                row.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    row.classList.remove('drag-over');
+                    const targetIdx = parseInt(row.dataset.index);
+                    if (customDragSrc !== null && customDragSrc !== targetIdx) {
+                        const item = customOrder.splice(customDragSrc, 1)[0];
+                        customOrder.splice(targetIdx, 0, item);
+                        renderCustomInputs();
+                    }
+                    customDragSrc = null;
+                });
+            });
+        }
+
+        function sortCustom(ascending) {
+            customOrder.sort((a, b) => {
+                const va = customValues[a] || '';
+                const vb = customValues[b] || '';
+                const na = parseFloat(va);
+                const nb = parseFloat(vb);
+                // If both are numbers, sort numerically
+                if (!isNaN(na) && !isNaN(nb)) {
+                    return ascending ? na - nb : nb - na;
+                }
+                // Otherwise sort as strings
+                return ascending ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            renderCustomInputs();
+        }
+
+        let selectedLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg';
+        let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
+
+        function getSelectedLogoUrl() {
+            const active = document.querySelector('.logo-toggle.active');
+            if (active && active.dataset.url === 'custom') {
+                return document.getElementById('custom-logo-url').value || selectedLogoUrl;
+            }
+            return selectedLogoUrl;
+        }
+
+        function applyCustom() {
+            closeCustomPanel();
+            renderCustomTeams();
+        }
+
+        function renderCustomTeams() {
+            const title = document.getElementById('custom-title').value || 'Custom';
+            const subtitle = document.getElementById('custom-subtitle').value || '';
+            const logoUrl = getSelectedLogoUrl();
+
+            document.getElementById('page-title').textContent = title;
+            document.getElementById('page-subtitle').textContent = subtitle;
+            const networkLogo = document.getElementById('network-logo');
+            networkLogo.src = logoUrl;
+            document.querySelector('.header').style.background =
+                `linear-gradient(135deg, ${selectedHeaderColors[0]} 0%, ${selectedHeaderColors[1]} 100%)`;
+
+            const container = document.getElementById('teams-container');
+            container.innerHTML = '';
+
+            customOrder.forEach((teamName, index) => {
+                const team = teamsData.find(t => t.team === teamName);
+                if (!team) return;
+
+                const row = document.createElement('div');
+                row.className = 'team-row';
+                row.style.backgroundColor = team.color;
+                row.style.zIndex = customOrder.length - index;
+
+                const logo = document.createElement('img');
+                logo.crossOrigin = 'anonymous';
+                logo.src = team.logo;
+                logo.alt = `${team.team} Logo`;
+                logo.className = 'team-logo';
+
+                const points = document.createElement('div');
+                points.className = 'points';
+                const val = customValues[teamName] || '';
+                // Auto-size font for longer strings
+                if (val.length > 10) {
+                    points.style.fontSize = '60px';
+                } else if (val.length > 6) {
+                    points.style.fontSize = '80px';
+                }
+                points.textContent = val;
+
+                row.appendChild(logo);
+                row.appendChild(points);
+                container.appendChild(row);
+            });
+        }
+
+        // Export to PNG function
+        function exportToPNG() {
+            const exportBtn = document.getElementById('export-btn');
+
+            // Hide controls before export
+            document.querySelector('.controls').style.display = 'none';
+            exportBtn.textContent = 'Exporting...';
+            exportBtn.disabled = true;
+
+            const containerElement = document.querySelector('.container');
+
+            // Wait a bit for layout to settle
+            setTimeout(() => {
+                domtoimage.toPng(containerElement, {
+                    width: 1080,
+                    height: 1920,
+                    quality: 1.0,
+                    style: {
+                        margin: '0',
+                        padding: '0'
+                    }
+                }).then(function(dataUrl) {
+                    // Create download link
+                    const link = document.createElement('a');
+                    const now = new Date();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const year = String(now.getFullYear()).slice(-2);
+                    const filename = `NFCEastMeme-${month}-${day}-${year}.png`;
+
+                    link.download = filename;
+                    link.href = dataUrl;
+                    link.click();
+
+                    // Show controls again
+                    document.querySelector('.controls').style.display = 'flex';
+                    exportBtn.textContent = 'Export PNG';
+                    exportBtn.disabled = false;
+                }).catch(function(error) {
+                    console.error('Export error:', error);
+                    document.querySelector('.controls').style.display = 'flex';
+                    exportBtn.textContent = 'Export PNG';
+                    exportBtn.disabled = false;
+                    alert('Error exporting image. Please try again.');
+                });
+            }, 300);
+        }
+
         // Fetch and parse the YAML file
         fetch('nfceast.yml')
             .then(response => response.text())
             .then(yamlText => {
                 const data = jsyaml.load(yamlText);
-                const teams = data.nfc_east;
+                teamsData = data.nfc_east;
 
-                // Sort teams by points_against (ascending - fewest first)
-                teams.sort((a, b) => a.points_against - b.points_against);
+                // Initialize custom order
+                customOrder = teamsData.map(t => t.team);
 
-                // Get container
-                const container = document.getElementById('teams-container');
+                // Initial render (empty custom view)
+                renderCustomTeams();
 
-                // Create team rows
-                teams.forEach((team, index) => {
-                    const row = document.createElement('div');
-                    row.className = 'team-row';
-                    row.style.backgroundColor = team.color;
-                    // Set z-index so teams with fewer points appear on top
-                    // Higher z-index = better (fewer points allowed)
-                    row.style.zIndex = teams.length - index;
-
-                    const logo = document.createElement('img');
-                    logo.src = team.logo;
-                    logo.alt = `${team.team} Logo`;
-                    logo.className = 'team-logo';
-
-                    const points = document.createElement('div');
-                    points.className = 'points';
-                    points.textContent = team.points_against;
-
-                    row.appendChild(logo);
-                    row.appendChild(points);
-                    container.appendChild(row);
+                // Event listeners - logo toggles
+                document.querySelectorAll('.logo-toggle').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.logo-toggle').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        const urlInput = document.getElementById('custom-logo-url');
+                        if (btn.dataset.url === 'custom') {
+                            urlInput.classList.add('visible');
+                            urlInput.focus();
+                        } else {
+                            urlInput.classList.remove('visible');
+                            selectedLogoUrl = btn.dataset.url;
+                        }
+                        const colors = btn.dataset.color.split(',');
+                        selectedHeaderColors = colors;
+                    });
                 });
+                document.getElementById('sort-asc-btn').addEventListener('click', () => sortCustom(true));
+                document.getElementById('sort-desc-btn').addEventListener('click', () => sortCustom(false));
+                document.getElementById('custom-apply-btn').addEventListener('click', applyCustom);
+                document.getElementById('custom-overlay').addEventListener('click', closeCustomPanel);
+                document.getElementById('edit-btn').addEventListener('click', openCustomPanel);
+                document.getElementById('export-btn').addEventListener('click', exportToPNG);
             })
             .catch(error => {
                 console.error('Error loading YAML:', error);
