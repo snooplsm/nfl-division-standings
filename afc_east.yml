@@ -1,0 +1,13 @@
+afc_east:
+  - team: Bills
+    logo: "https://upload.wikimedia.org/wikipedia/en/7/77/Buffalo_Bills_logo.svg"
+    color: "#00338D"
+  - team: Dolphins
+    logo: "https://upload.wikimedia.org/wikipedia/en/3/37/Miami_Dolphins_logo.svg"
+    color: "#008E97"
+  - team: Patriots
+    logo: "https://upload.wikimedia.org/wikipedia/en/b/b9/New_England_Patriots_logo.svg"
+    color: "#002244"
+  - team: Jets
+    logo: "https://upload.wikimedia.org/wikipedia/en/6/6b/New_York_Jets_logo.svg"
+    color: "#125740"

@@ -1,4 +1,0 @@
-eagles: https://en.wikipedia.org/wiki/Philadelphia_Eagles#/media/File:Philadelphia_Eagles_logo.svg
-giants: https://en.wikipedia.org/wiki/New_York_Giants#/media/File:New_York_Giants_logo.svg
-cowboys: https://en.wikipedia.org/wiki/Dallas_Cowboys#/media/File:Dallas_Cowboys.svg
-commanders: https://en.wikipedia.org/wiki/Washington_Commanders#/media/File:Washington_Commanders_logo.svg

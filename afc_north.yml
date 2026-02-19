@@ -1,0 +1,13 @@
+afc_north:
+  - team: Ravens
+    logo: "https://upload.wikimedia.org/wikipedia/en/1/16/Baltimore_Ravens_logo.svg"
+    color: "#241773"
+  - team: Bengals
+    logo: "https://upload.wikimedia.org/wikipedia/commons/8/81/Cincinnati_Bengals_logo.svg"
+    color: "#FB4F14"
+  - team: Browns
+    logo: "https://upload.wikimedia.org/wikipedia/en/d/d9/Cleveland_Browns_logo.svg"
+    color: "#311D00"
+  - team: Steelers
+    logo: "https://upload.wikimedia.org/wikipedia/commons/d/de/Pittsburgh_Steelers_logo.svg"
+    color: "#FFB612"

@@ -1,0 +1,13 @@
+nfc_south:
+  - team: Falcons
+    logo: "https://upload.wikimedia.org/wikipedia/en/c/c5/Atlanta_Falcons_logo.svg"
+    color: "#A71930"
+  - team: Panthers
+    logo: "https://upload.wikimedia.org/wikipedia/en/1/1c/Carolina_Panthers_logo.svg"
+    color: "#0085CA"
+  - team: Saints
+    logo: "https://upload.wikimedia.org/wikipedia/commons/5/50/New_Orleans_Saints_logo.svg"
+    color: "#D3BC8D"
+  - team: Buccaneers
+    logo: "https://upload.wikimedia.org/wikipedia/en/a/a2/Tampa_Bay_Buccaneers_logo.svg"
+    color: "#D50A0A"

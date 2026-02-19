@@ -1,0 +1,13 @@
+afc_south:
+  - team: Texans
+    logo: "https://upload.wikimedia.org/wikipedia/en/2/28/Houston_Texans_logo.svg"
+    color: "#03202F"
+  - team: Colts
+    logo: "https://upload.wikimedia.org/wikipedia/commons/0/00/Indianapolis_Colts_logo.svg"
+    color: "#002C5F"
+  - team: Jaguars
+    logo: "https://upload.wikimedia.org/wikipedia/en/7/74/Jacksonville_Jaguars_logo.svg"
+    color: "#006778"
+  - team: Titans
+    logo: "https://upload.wikimedia.org/wikipedia/en/c/c1/Tennessee_Titans_logo.svg"
+    color: "#0C2340"

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC East - Custom Dashboard</title>
+    <title>NFL Division - Custom Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <style>
         * {
@@ -72,6 +72,17 @@
             color: white;
         }
 
+        .division-select {
+            padding: 10px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid white;
+            border-radius: 5px;
+            background: white;
+            color: #1e3a8a;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
         .custom-panel {
             display: none;
             position: fixed;
@@ -119,6 +130,23 @@
         }
 
         .custom-title-row input {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: white;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .division-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .division-row select {
             flex: 1;
             padding: 8px 12px;
             font-size: 14px;
@@ -220,6 +248,31 @@
 
         .custom-apply-btn:hover {
             background: #2563eb;
+        }
+
+        .history-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .history-row select,
+        .history-row button {
+            padding: 8px 10px;
+            font-size: 12px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: #ddd;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .history-row select {
+            flex: 1;
+        }
+
+        .history-row button {
+            cursor: pointer;
         }
 
         .custom-logo-section {
@@ -384,39 +437,21 @@
             <input type="text" id="custom-title" placeholder="Title (e.g. Rushing Yards)">
             <input type="text" id="custom-subtitle" placeholder="Subtitle (e.g. In the NFC East)">
         </div>
+        <div class="division-row">
+            <select id="conference-select">
+                <option value="NFC">NFC</option>
+                <option value="AFC">AFC</option>
+            </select>
+            <select id="division-select">
+                <option value="EAST">EAST</option>
+                <option value="NORTH">NORTH</option>
+                <option value="SOUTH">SOUTH</option>
+                <option value="WEST">WEST</option>
+            </select>
+        </div>
         <div class="custom-logo-section">
             <label>Header Logo</label>
-            <div class="logo-group">
-                <div class="logo-group-label">Philadelphia</div>
-                <div class="logo-group-buttons">
-                    <button class="logo-toggle active" data-url="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" data-color="#1e3a8a,#3b82f6">6ABC</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/0/05/Fts-philadelphia-a.svg" data-color="#003a70,#0064b0">FOX 29</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/5/5b/WPHL_CW_2024_%282%29.svg" data-color="#2d2d6e,#5c5cb8">PHL 17</button>
-                </div>
-            </div>
-            <div class="logo-group">
-                <div class="logo-group-label">Washington</div>
-                <div class="logo-group-buttons">
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/1/1e/WRC-TV_2023.svg" data-color="#b0c4de,#f0f4f8">NBC 4</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/f/f8/Fts-washington-dc-a.svg" data-color="#003a70,#0064b0">FOX 5</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/f/ff/WJLA_ABC_7_Fall_2021.svg" data-color="#b71c1c,#e53935">ABC 7</button>
-                </div>
-            </div>
-            <div class="logo-group">
-                <div class="logo-group-label">Dallas</div>
-                <div class="logo-group-buttons">
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/e/e0/KXAS_2023.svg" data-color="#0c2340,#1a5dab">NBC 5</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/c/c7/WFAA_%282021%29.svg" data-color="#c62828,#ef5350">ABC 8</button>
-                </div>
-            </div>
-            <div class="logo-group">
-                <div class="logo-group-label">New York</div>
-                <div class="logo-group-buttons">
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg" data-color="#0d47a1,#1976d2">ABC 7</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/8/8d/WNBC_2023.svg" data-color="#b0c4de,#f0f4f8">NBC 4</button>
-                    <button class="logo-toggle" data-url="https://upload.wikimedia.org/wikipedia/commons/3/3f/Spectrum_News_NY1_%282023%29.svg" data-color="#1a1a2e,#e63946">NY1</button>
-                </div>
-            </div>
+            <div id="division-station-options"></div>
             <div class="logo-group">
                 <div class="logo-group-label">Custom</div>
                 <div class="logo-group-buttons">
@@ -430,16 +465,26 @@
             <button id="sort-asc-btn">Sort Ascending</button>
             <button id="sort-desc-btn">Sort Descending</button>
         </div>
+        <div class="history-row">
+            <select id="history-select">
+                <option value="">History</option>
+            </select>
+            <button id="load-history-btn">Load</button>
+            <button id="delete-history-btn">Delete</button>
+        </div>
         <button class="custom-apply-btn" id="custom-apply-btn">Apply</button>
     </div>
     <div class="container">
     <div class="header">
         <div class="controls">
+            <select id="header-history-select" class="division-select" style="display:none;">
+                <option value="">History</option>
+            </select>
             <button id="edit-btn" class="edit-btn">Edit</button>
             <button id="export-btn" class="export-btn">Export PNG</button>
         </div>
         <div class="logo-container">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="6ABC Logo" id="network-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="Network Logo" id="network-logo">
         </div>
         <div class="title" id="page-title">Custom</div>
         <div class="subtitle" id="page-subtitle"></div>
@@ -452,12 +497,335 @@
 
     <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js"></script>
     <script>
+        const TV_STATIONS_BY_DIVISION = {
+            nfc_east: [
+                { label: '6ABC', url: 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg', color: '#1e3a8a,#3b82f6' },
+                { label: 'FOX 29', url: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Fts-philadelphia-a.svg', color: '#003a70,#0064b0' },
+                { label: 'NBC 4', url: 'https://upload.wikimedia.org/wikipedia/commons/1/1e/WRC-TV_2023.svg', color: '#b0c4de,#f0f4f8' },
+                { label: 'ABC 7', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg', color: '#0d47a1,#1976d2' }
+            ],
+            nfc_north: [
+                { label: 'FOX 32 Chicago', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-chicago-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 2 Detroit', url: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Fts-detroit-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 9 Minneapolis', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Fts-minneapolis-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 11 Green Bay', url: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/Fts-green-bay-a.svg', color: '#003a70,#0064b0' }
+            ],
+            nfc_south: [
+                { label: 'FOX 5 Atlanta', url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Fts-atlanta-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 35 Orlando', url: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Fts-orlando-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 8 New Orleans', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Fts-new-orleans-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 13 Tampa Bay', url: 'https://upload.wikimedia.org/wikipedia/commons/6/67/Fts-tampa-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 46 Charlotte', url: 'https://upload.wikimedia.org/wikipedia/commons/5/5a/Fts-charlotte-a.svg', color: '#003a70,#0064b0' }
+            ],
+            nfc_west: [
+                { label: 'FOX 10 Arizona', url: 'https://upload.wikimedia.org/wikipedia/commons/9/9b/Fts-phoenix-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 11 Los Angeles', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0a/Fts-los-angeles-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 2 San Francisco', url: 'https://upload.wikimedia.org/wikipedia/commons/8/89/Fts-san-francisco-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 13 Seattle', url: 'https://upload.wikimedia.org/wikipedia/commons/6/6d/Fts-seattle-a.svg', color: '#003a70,#0064b0' }
+            ],
+            afc_east: [
+                { label: 'WCVB ABC 5 (NE)', url: 'https://upload.wikimedia.org/wikipedia/commons/9/9b/WCVB-TV_alternate_2021.svg', color: '#b71c1c,#e53935' },
+                { label: 'FOX Buffalo', url: 'https://upload.wikimedia.org/wikipedia/commons/3/35/Fts-buffalo-a.svg', color: '#003a70,#0064b0' },
+                { label: 'WSVN 7 Miami', url: 'https://upload.wikimedia.org/wikipedia/commons/9/95/Wsvn-miami.svg', color: '#1e293b,#475569' },
+                { label: 'ABC 7 NY', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg', color: '#0d47a1,#1976d2' }
+            ],
+            afc_north: [
+                { label: 'FOX 43 PIT', url: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/Fts-pittsburgh-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 19 CIN', url: 'https://upload.wikimedia.org/wikipedia/commons/b/b8/Fts-cincinnati-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 8 CLE', url: 'https://upload.wikimedia.org/wikipedia/commons/0/01/Fts-cleveland-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 45 BAL', url: 'https://upload.wikimedia.org/wikipedia/commons/5/59/Fts-baltimore-a.svg', color: '#003a70,#0064b0' }
+            ],
+            afc_south: [
+                { label: 'FOX 26 Houston', url: 'https://upload.wikimedia.org/wikipedia/commons/8/80/Fts-houston-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 59 Indianapolis', url: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Fts-indianapolis-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 30 Jacksonville', url: 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Fts-jacksonville-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 17 Tennessee', url: 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Fts-nashville-a.svg', color: '#003a70,#0064b0' }
+            ],
+            afc_west: [
+                { label: 'FOX 31 Denver', url: 'https://upload.wikimedia.org/wikipedia/commons/e/e6/Fts-denver-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 4 Kansas City', url: 'https://upload.wikimedia.org/wikipedia/commons/d/dd/Fts-kansas-city-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 5 Nevada', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-las-vegas-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 11 LA Chargers', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0a/Fts-los-angeles-a.svg', color: '#003a70,#0064b0' }
+            ]
+        };
+
         let teamsData = [];
+        let allTeamData = {};
+        let divisionDataCache = {};
+        let selectedConference = 'NFC';
+        let selectedDivision = 'EAST';
+        const SETTINGS_STORAGE_KEY = 'nflDivisionDashboard.settings.v1';
+        const HISTORY_STORAGE_KEY = 'nflDivisionDashboard.history.v1';
+        const HISTORY_LIMIT = 20;
 
         // Custom panel state
         let customOrder = []; // team names in drag order
         let customValues = {}; // team -> value
         let customDragSrc = null;
+        let divisionStates = {};
+        let settingsHistory = [];
+        let autoSnapshotTimer = null;
+
+        let selectedLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg';
+        let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
+
+        function getDivisionKey() {
+            return `${selectedConference.toLowerCase()}_${selectedDivision.toLowerCase()}`;
+        }
+
+        function getDivisionLabel() {
+            return `${selectedConference} ${selectedDivision}`;
+        }
+
+        function getDefaultStationsForDivision() {
+            const divisionStations = TV_STATIONS_BY_DIVISION[getDivisionKey()] || [];
+            return divisionStations[0] || {
+                url: 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg',
+                color: '#1e3a8a,#3b82f6'
+            };
+        }
+
+        function normalizeColorPair(colorCsv) {
+            const parts = (colorCsv || '').split(',');
+            return [
+                parts[0] ? parts[0].trim() : '#1e3a8a',
+                parts[1] ? parts[1].trim() : '#3b82f6'
+            ];
+        }
+
+        function getSelectedLogoUrl() {
+            const active = document.querySelector('.logo-toggle.active');
+            if (active && active.dataset.url === 'custom') {
+                return document.getElementById('custom-logo-url').value || selectedLogoUrl;
+            }
+            return selectedLogoUrl;
+        }
+
+        function persistCurrentDivisionState() {
+            const key = getDivisionKey();
+            if (!teamsData.length) return;
+            divisionStates[key] = {
+                title: document.getElementById('custom-title').value,
+                subtitle: document.getElementById('custom-subtitle').value,
+                order: [...customOrder],
+                values: { ...customValues },
+                logoUrl: selectedLogoUrl,
+                colors: [...selectedHeaderColors]
+            };
+        }
+
+        function buildCurrentSettingsSnapshot() {
+            return {
+                selectedConference,
+                selectedDivision,
+                divisionStates: JSON.parse(JSON.stringify(divisionStates)),
+                selectedLogoUrl,
+                selectedHeaderColors: [...selectedHeaderColors],
+                customLogoInput: document.getElementById('custom-logo-url').value || ''
+            };
+        }
+
+        function saveSettingsToStorage() {
+            try {
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(buildCurrentSettingsSnapshot()));
+                scheduleAutoSnapshot();
+            } catch (error) {
+                console.warn('Unable to save settings:', error);
+            }
+        }
+
+        function restoreSettingsFromStorage() {
+            try {
+                const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                selectedConference = saved.selectedConference || selectedConference;
+                selectedDivision = saved.selectedDivision || selectedDivision;
+                divisionStates = saved.divisionStates || {};
+                selectedLogoUrl = saved.selectedLogoUrl || selectedLogoUrl;
+                selectedHeaderColors = Array.isArray(saved.selectedHeaderColors) && saved.selectedHeaderColors.length === 2
+                    ? saved.selectedHeaderColors
+                    : selectedHeaderColors;
+                document.getElementById('custom-logo-url').value = saved.customLogoInput || '';
+            } catch (error) {
+                console.warn('Unable to restore settings:', error);
+            }
+        }
+
+        function saveHistoryToStorage() {
+            try {
+                localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(settingsHistory));
+            } catch (error) {
+                console.warn('Unable to save history:', error);
+            }
+        }
+
+        function restoreHistoryFromStorage() {
+            try {
+                const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+                settingsHistory = raw ? JSON.parse(raw) : [];
+            } catch (error) {
+                settingsHistory = [];
+            }
+        }
+
+        function renderHistoryOptions() {
+            const select = document.getElementById('history-select');
+            const headerSelect = document.getElementById('header-history-select');
+            select.innerHTML = '<option value="">History</option>';
+            headerSelect.innerHTML = '<option value="">History</option>';
+            settingsHistory.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.label;
+                select.appendChild(option);
+
+                const headerOption = document.createElement('option');
+                headerOption.value = item.id;
+                headerOption.textContent = item.label;
+                headerSelect.appendChild(headerOption);
+            });
+            headerSelect.style.display = settingsHistory.length ? 'inline-block' : 'none';
+        }
+
+        function saveSnapshot(auto = false) {
+            persistCurrentDivisionState();
+            const snapshotState = buildCurrentSettingsSnapshot();
+            const stateKey = JSON.stringify(snapshotState);
+            if (settingsHistory[0] && settingsHistory[0].stateKey === stateKey) {
+                return;
+            }
+            const now = new Date();
+            const snapshot = {
+                id: String(now.getTime()),
+                label: `${auto ? 'Auto' : 'Manual'} ${getDivisionLabel()} ${now.toLocaleString()}`,
+                state: snapshotState,
+                stateKey
+            };
+            settingsHistory.unshift(snapshot);
+            settingsHistory = settingsHistory.slice(0, HISTORY_LIMIT);
+            saveHistoryToStorage();
+            renderHistoryOptions();
+        }
+
+        function scheduleAutoSnapshot() {
+            clearTimeout(autoSnapshotTimer);
+            autoSnapshotTimer = setTimeout(() => saveSnapshot(true), 1200);
+        }
+
+        function loadSnapshotById(snapshotId) {
+            const snapshot = settingsHistory.find(item => item.id === snapshotId);
+            if (!snapshot) return;
+
+            const state = snapshot.state || {};
+            selectedConference = state.selectedConference || selectedConference;
+            selectedDivision = state.selectedDivision || selectedDivision;
+            divisionStates = state.divisionStates || {};
+            selectedLogoUrl = state.selectedLogoUrl || selectedLogoUrl;
+            selectedHeaderColors = Array.isArray(state.selectedHeaderColors) && state.selectedHeaderColors.length === 2
+                ? state.selectedHeaderColors
+                : selectedHeaderColors;
+            document.getElementById('custom-logo-url').value = state.customLogoInput || '';
+
+            document.getElementById('conference-select').value = selectedConference;
+            document.getElementById('division-select').value = selectedDivision;
+
+            loadDivisionData().then(() => {
+                saveSettingsToStorage();
+            });
+        }
+
+        function deleteSnapshotById(snapshotId) {
+            settingsHistory = settingsHistory.filter(item => item.id !== snapshotId);
+            saveHistoryToStorage();
+            renderHistoryOptions();
+        }
+
+        function applyStateForDivision() {
+            const key = getDivisionKey();
+            const saved = divisionStates[key];
+            const defaultStation = getDefaultStationsForDivision();
+
+            customOrder = teamsData.map(t => t.team);
+            customValues = {};
+            selectedLogoUrl = defaultStation.url;
+            selectedHeaderColors = normalizeColorPair(defaultStation.color);
+            document.getElementById('custom-title').value = '';
+            document.getElementById('custom-subtitle').value = `In the ${getDivisionLabel()}`;
+
+            if (saved) {
+                document.getElementById('custom-title').value = saved.title || '';
+                document.getElementById('custom-subtitle').value = saved.subtitle || `In the ${getDivisionLabel()}`;
+                customOrder = saved.order && saved.order.length ? [...saved.order] : customOrder;
+                customValues = saved.values ? { ...saved.values } : {};
+                selectedLogoUrl = saved.logoUrl || selectedLogoUrl;
+                selectedHeaderColors = saved.colors && saved.colors.length === 2
+                    ? [...saved.colors]
+                    : selectedHeaderColors;
+            }
+        }
+
+        function renderStationOptions() {
+            const parent = document.getElementById('division-station-options');
+            parent.innerHTML = '';
+
+            const group = document.createElement('div');
+            group.className = 'logo-group';
+
+            const label = document.createElement('div');
+            label.className = 'logo-group-label';
+            label.textContent = `${getDivisionLabel()} Top Stations`;
+            group.appendChild(label);
+
+            const buttons = document.createElement('div');
+            buttons.className = 'logo-group-buttons';
+            (TV_STATIONS_BY_DIVISION[getDivisionKey()] || []).forEach((station) => {
+                const btn = document.createElement('button');
+                btn.className = 'logo-toggle';
+                btn.dataset.url = station.url;
+                btn.dataset.color = station.color;
+                btn.textContent = station.label;
+                if (station.url === selectedLogoUrl) {
+                    btn.classList.add('active');
+                }
+                btn.addEventListener('click', handleLogoToggleClick);
+                buttons.appendChild(btn);
+            });
+            group.appendChild(buttons);
+            parent.appendChild(group);
+
+            const customBtn = document.querySelector('.logo-toggle[data-url="custom"]');
+            if (customBtn) {
+                const hasDivisionMatch = (TV_STATIONS_BY_DIVISION[getDivisionKey()] || [])
+                    .some(station => station.url === selectedLogoUrl);
+                customBtn.classList.toggle('active', !hasDivisionMatch);
+                customBtn.removeEventListener('click', handleLogoToggleClick);
+                customBtn.addEventListener('click', handleLogoToggleClick);
+            }
+
+            const urlInput = document.getElementById('custom-logo-url');
+            if (customBtn && customBtn.classList.contains('active')) {
+                urlInput.classList.add('visible');
+            } else {
+                urlInput.classList.remove('visible');
+            }
+        }
+
+        function handleLogoToggleClick(e) {
+            const btn = e.currentTarget;
+            document.querySelectorAll('.logo-toggle').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const urlInput = document.getElementById('custom-logo-url');
+            if (btn.dataset.url === 'custom') {
+                urlInput.classList.add('visible');
+                urlInput.focus();
+            } else {
+                urlInput.classList.remove('visible');
+                selectedLogoUrl = btn.dataset.url;
+            }
+            selectedHeaderColors = normalizeColorPair(btn.dataset.color);
+            saveSettingsToStorage();
+        }
 
         function openCustomPanel() {
             const panel = document.getElementById('custom-panel');
@@ -465,11 +833,7 @@
             panel.classList.add('visible');
             overlay.classList.add('visible');
 
-            // Initialize order if empty
-            if (customOrder.length === 0) {
-                customOrder = teamsData.map(t => t.team);
-            }
-
+            renderStationOptions();
             renderCustomInputs();
         }
 
@@ -505,8 +869,10 @@
                 input.type = 'text';
                 input.placeholder = 'Value';
                 input.value = customValues[teamName] || '';
-                input.addEventListener('input', (e) => {
-                    customValues[teamName] = e.target.value;
+                input.addEventListener('input', (event) => {
+                    customValues[teamName] = event.target.value;
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
                 });
 
                 row.appendChild(handle);
@@ -514,26 +880,25 @@
                 row.appendChild(input);
                 container.appendChild(row);
 
-                // Drag events
-                row.addEventListener('dragstart', (e) => {
+                row.addEventListener('dragstart', (event) => {
                     customDragSrc = idx;
                     row.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.effectAllowed = 'move';
                 });
                 row.addEventListener('dragend', () => {
                     row.classList.remove('dragging');
                     container.querySelectorAll('.custom-team-row').forEach(r => r.classList.remove('drag-over'));
                 });
-                row.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
+                row.addEventListener('dragover', (event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
                     container.querySelectorAll('.custom-team-row').forEach(r => r.classList.remove('drag-over'));
                     row.classList.add('drag-over');
                 });
-                row.addEventListener('drop', (e) => {
-                    e.preventDefault();
+                row.addEventListener('drop', (event) => {
+                    event.preventDefault();
                     row.classList.remove('drag-over');
-                    const targetIdx = parseInt(row.dataset.index);
+                    const targetIdx = parseInt(row.dataset.index, 10);
                     if (customDragSrc !== null && customDragSrc !== targetIdx) {
                         const item = customOrder.splice(customDragSrc, 1)[0];
                         customOrder.splice(targetIdx, 0, item);
@@ -550,46 +915,36 @@
                 const vb = customValues[b] || '';
                 const na = parseFloat(va);
                 const nb = parseFloat(vb);
-                // If both are numbers, sort numerically
                 if (!isNaN(na) && !isNaN(nb)) {
                     return ascending ? na - nb : nb - na;
                 }
-                // Otherwise sort as strings
                 return ascending ? va.localeCompare(vb) : vb.localeCompare(va);
             });
             renderCustomInputs();
-        }
-
-        let selectedLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg';
-        let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
-
-        function getSelectedLogoUrl() {
-            const active = document.querySelector('.logo-toggle.active');
-            if (active && active.dataset.url === 'custom') {
-                return document.getElementById('custom-logo-url').value || selectedLogoUrl;
-            }
-            return selectedLogoUrl;
-        }
-
-        function applyCustom() {
-            closeCustomPanel();
-            renderCustomTeams();
+            persistCurrentDivisionState();
+            saveSettingsToStorage();
         }
 
         function renderCustomTeams() {
             const title = document.getElementById('custom-title').value || 'Custom';
-            const subtitle = document.getElementById('custom-subtitle').value || '';
+            const subtitle = document.getElementById('custom-subtitle').value || `In the ${getDivisionLabel()}`;
             const logoUrl = getSelectedLogoUrl();
 
             document.getElementById('page-title').textContent = title;
             document.getElementById('page-subtitle').textContent = subtitle;
             const networkLogo = document.getElementById('network-logo');
             networkLogo.src = logoUrl;
+            networkLogo.alt = `${getDivisionLabel()} Network Logo`;
             document.querySelector('.header').style.background =
                 `linear-gradient(135deg, ${selectedHeaderColors[0]} 0%, ${selectedHeaderColors[1]} 100%)`;
 
             const container = document.getElementById('teams-container');
             container.innerHTML = '';
+
+            if (!teamsData.length) {
+                container.innerHTML = '<div style="color: white; text-align: center; padding: 50px;">No team data found for this division</div>';
+                return;
+            }
 
             customOrder.forEach((teamName, index) => {
                 const team = teamsData.find(t => t.team === teamName);
@@ -609,7 +964,6 @@
                 const points = document.createElement('div');
                 points.className = 'points';
                 const val = customValues[teamName] || '';
-                // Auto-size font for longer strings
                 if (val.length > 10) {
                     points.style.fontSize = '60px';
                 } else if (val.length > 6) {
@@ -623,18 +977,58 @@
             });
         }
 
-        // Export to PNG function
+        function applyCustom() {
+            closeCustomPanel();
+            persistCurrentDivisionState();
+            renderCustomTeams();
+            saveSettingsToStorage();
+        }
+
+        function fetchDivisionData(divisionKey) {
+            if (divisionDataCache[divisionKey]) {
+                return Promise.resolve(divisionDataCache[divisionKey]);
+            }
+
+            return fetch(`${divisionKey}.yml`)
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Missing ${divisionKey}.yml`);
+                    }
+                    return response.text();
+                })
+                .then((yamlText) => {
+                    const parsed = jsyaml.load(yamlText) || {};
+                    const teams = parsed[divisionKey] || [];
+                    divisionDataCache[divisionKey] = teams;
+                    return teams;
+                })
+                .catch(() => {
+                    const fallback = allTeamData[divisionKey] || [];
+                    divisionDataCache[divisionKey] = fallback;
+                    return fallback;
+                });
+        }
+
+        function loadDivisionData() {
+            const divisionKey = getDivisionKey();
+            return fetchDivisionData(divisionKey).then((teams) => {
+                teamsData = teams;
+                applyStateForDivision();
+                renderStationOptions();
+                renderCustomInputs();
+                renderCustomTeams();
+            });
+        }
+
         function exportToPNG() {
             const exportBtn = document.getElementById('export-btn');
 
-            // Hide controls before export
             document.querySelector('.controls').style.display = 'none';
             exportBtn.textContent = 'Exporting...';
             exportBtn.disabled = true;
 
             const containerElement = document.querySelector('.container');
 
-            // Wait a bit for layout to settle
             setTimeout(() => {
                 domtoimage.toPng(containerElement, {
                     width: 1080,
@@ -645,19 +1039,17 @@
                         padding: '0'
                     }
                 }).then(function(dataUrl) {
-                    // Create download link
                     const link = document.createElement('a');
                     const now = new Date();
                     const month = String(now.getMonth() + 1).padStart(2, '0');
                     const day = String(now.getDate()).padStart(2, '0');
                     const year = String(now.getFullYear()).slice(-2);
-                    const filename = `NFCEastMeme-${month}-${day}-${year}.png`;
+                    const filename = `${selectedConference}${selectedDivision}Meme-${month}-${day}-${year}.png`;
 
                     link.download = filename;
                     link.href = dataUrl;
                     link.click();
 
-                    // Show controls again
                     document.querySelector('.controls').style.display = 'flex';
                     exportBtn.textContent = 'Export PNG';
                     exportBtn.disabled = false;
@@ -671,35 +1063,45 @@
             }, 300);
         }
 
-        // Fetch and parse the YAML file
         fetch('nfceast.yml')
             .then(response => response.text())
             .then(yamlText => {
-                const data = jsyaml.load(yamlText);
-                teamsData = data.nfc_east;
+                allTeamData = jsyaml.load(yamlText) || {};
 
-                // Initialize custom order
-                customOrder = teamsData.map(t => t.team);
+                const conferenceSelect = document.getElementById('conference-select');
+                const divisionSelect = document.getElementById('division-select');
+                restoreSettingsFromStorage();
+                restoreHistoryFromStorage();
+                renderHistoryOptions();
+                conferenceSelect.value = selectedConference;
+                divisionSelect.value = selectedDivision;
 
-                // Initial render (empty custom view)
-                renderCustomTeams();
+                conferenceSelect.addEventListener('change', (event) => {
+                    persistCurrentDivisionState();
+                    selectedConference = event.target.value;
+                    loadDivisionData().then(() => saveSettingsToStorage());
+                });
 
-                // Event listeners - logo toggles
-                document.querySelectorAll('.logo-toggle').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('.logo-toggle').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        const urlInput = document.getElementById('custom-logo-url');
-                        if (btn.dataset.url === 'custom') {
-                            urlInput.classList.add('visible');
-                            urlInput.focus();
-                        } else {
-                            urlInput.classList.remove('visible');
-                            selectedLogoUrl = btn.dataset.url;
-                        }
-                        const colors = btn.dataset.color.split(',');
-                        selectedHeaderColors = colors;
-                    });
+                divisionSelect.addEventListener('change', (event) => {
+                    persistCurrentDivisionState();
+                    selectedDivision = event.target.value;
+                    loadDivisionData().then(() => saveSettingsToStorage());
+                });
+
+                document.getElementById('custom-logo-url').addEventListener('input', (event) => {
+                    if (document.querySelector('.logo-toggle.active')?.dataset.url === 'custom') {
+                        selectedLogoUrl = event.target.value.trim() || selectedLogoUrl;
+                        persistCurrentDivisionState();
+                        saveSettingsToStorage();
+                    }
+                });
+                document.getElementById('custom-title').addEventListener('input', () => {
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
+                });
+                document.getElementById('custom-subtitle').addEventListener('input', () => {
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
                 });
                 document.getElementById('sort-asc-btn').addEventListener('click', () => sortCustom(true));
                 document.getElementById('sort-desc-btn').addEventListener('click', () => sortCustom(false));
@@ -707,6 +1109,26 @@
                 document.getElementById('custom-overlay').addEventListener('click', closeCustomPanel);
                 document.getElementById('edit-btn').addEventListener('click', openCustomPanel);
                 document.getElementById('export-btn').addEventListener('click', exportToPNG);
+                document.getElementById('load-history-btn').addEventListener('click', () => {
+                    const selectedId = document.getElementById('history-select').value;
+                    if (selectedId) loadSnapshotById(selectedId);
+                });
+                document.getElementById('header-history-select').addEventListener('change', (event) => {
+                    const selectedId = event.target.value;
+                    if (!selectedId) return;
+                    loadSnapshotById(selectedId);
+                    event.target.value = '';
+                });
+                document.getElementById('delete-history-btn').addEventListener('click', () => {
+                    const select = document.getElementById('history-select');
+                    const selectedId = select.value;
+                    if (!selectedId) return;
+                    deleteSnapshotById(selectedId);
+                    select.value = '';
+                    document.getElementById('header-history-select').value = '';
+                });
+
+                loadDivisionData().then(() => saveSettingsToStorage());
             })
             .catch(error => {
                 console.error('Error loading YAML:', error);

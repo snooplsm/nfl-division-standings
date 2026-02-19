@@ -1,0 +1,13 @@
+afc_west:
+  - team: Broncos
+    logo: "https://upload.wikimedia.org/wikipedia/en/4/44/Denver_Broncos_logo.svg"
+    color: "#FB4F14"
+  - team: Chiefs
+    logo: "https://upload.wikimedia.org/wikipedia/en/e/e1/Kansas_City_Chiefs_logo.svg"
+    color: "#E31837"
+  - team: Raiders
+    logo: "https://upload.wikimedia.org/wikipedia/en/4/48/Las_Vegas_Raiders_logo.svg"
+    color: "#000000"
+  - team: Chargers
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Los%20Angeles%20Chargers%20logo.svg"
+    color: "#0080C6"
