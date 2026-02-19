@@ -54,6 +54,16 @@
             align-items: center;
         }
 
+        .history-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: none;
+            align-items: flex-start;
+            flex-direction: column;
+            z-index: 20;
+        }
+
         .edit-btn, .export-btn {
             padding: 10px 20px;
             font-size: 16px;
@@ -141,20 +151,38 @@
         }
 
         .division-row {
-            display: flex;
-            gap: 10px;
+            display: grid;
+            gap: 8px;
             margin-bottom: 12px;
         }
 
-        .division-row select {
+        .division-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .division-toggle {
             flex: 1;
             padding: 8px 12px;
-            font-size: 14px;
-            border: 1px solid #555;
+            font-size: 13px;
+            font-weight: bold;
+            border: 2px solid #3b82f6;
             border-radius: 5px;
             background: #2a2a2a;
-            color: white;
+            color: #3b82f6;
+            cursor: pointer;
+            transition: all 0.2s;
             font-family: 'Arial Black', 'Arial Bold', sans-serif;
+        }
+
+        .division-toggle:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .division-toggle.active {
+            background: #3b82f6;
+            color: white;
         }
 
         .custom-team-row {
@@ -250,29 +278,115 @@
             background: #2563eb;
         }
 
-        .history-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .history-row select,
-        .history-row button {
-            padding: 8px 10px;
+        .history-toggle-btn {
+            padding: 8px 12px;
             font-size: 12px;
-            border: 1px solid #555;
-            border-radius: 5px;
-            background: #2a2a2a;
-            color: #ddd;
-            font-family: 'Arial Black', 'Arial Bold', sans-serif;
-        }
-
-        .history-row select {
-            flex: 1;
-        }
-
-        .history-row button {
+            font-weight: bold;
+            border: 2px solid white;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.35);
+            color: white;
             cursor: pointer;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            backdrop-filter: blur(4px);
+        }
+
+        .history-popover {
+            display: none;
+            margin-top: 8px;
+            width: 330px;
+            max-height: 380px;
+            overflow-y: auto;
+            background: rgba(10, 17, 33, 0.94);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 10px;
+            padding: 8px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .history-popover.visible {
+            display: block;
+        }
+
+        .history-item {
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(30, 41, 59, 0.6);
+            padding: 8px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .history-item.auto {
+            border-left: 4px solid #38bdf8;
+        }
+
+        .history-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .history-item-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .history-item-logos {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .history-conf-logo {
+            height: 16px;
+            width: auto;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1px 2px;
+        }
+
+        .history-station-logo {
+            height: 16px;
+            width: auto;
+            max-width: 90px;
+            object-fit: contain;
+        }
+
+        .history-division-badge {
+            font-size: 10px;
+            font-weight: bold;
+            color: #bfdbfe;
+            letter-spacing: 0.5px;
+        }
+
+        .history-delete-btn {
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+
+        .history-item-title {
+            font-size: 12px;
+            color: #f8fafc;
+            font-weight: bold;
+            line-height: 1.1;
+        }
+
+        .history-item-subtitle {
+            font-size: 11px;
+            color: #cbd5e1;
+            margin-top: 2px;
+            line-height: 1.15;
+        }
+
+        .history-item-date {
+            margin-top: 5px;
+            font-size: 10px;
+            color: #94a3b8;
         }
 
         .custom-logo-section {
@@ -349,9 +463,27 @@
             margin-bottom: 15px;
         }
 
+        .header.dark-logo-bg {
+            background: linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%) !important;
+        }
+
+        .header.dark-logo-bg .title,
+        .header.dark-logo-bg .subtitle {
+            color: #0f172a;
+            text-shadow: none;
+        }
+
         .logo-container img {
             height: 140px;
             width: auto;
+        }
+
+        .logo-container img.logo-white-invert {
+            filter: brightness(0) invert(1);
+        }
+
+        .logo-container img.logo-black-invert {
+            filter: brightness(0);
         }
 
         .title {
@@ -438,16 +570,16 @@
             <input type="text" id="custom-subtitle" placeholder="Subtitle (e.g. In the NFC East)">
         </div>
         <div class="division-row">
-            <select id="conference-select">
-                <option value="NFC">NFC</option>
-                <option value="AFC">AFC</option>
-            </select>
-            <select id="division-select">
-                <option value="EAST">EAST</option>
-                <option value="NORTH">NORTH</option>
-                <option value="SOUTH">SOUTH</option>
-                <option value="WEST">WEST</option>
-            </select>
+            <div class="division-group" id="conference-buttons">
+                <button class="division-toggle conference-toggle" data-value="NFC">NFC</button>
+                <button class="division-toggle conference-toggle" data-value="AFC">AFC</button>
+            </div>
+            <div class="division-group" id="division-buttons">
+                <button class="division-toggle division-toggle-btn" data-value="EAST">EAST</button>
+                <button class="division-toggle division-toggle-btn" data-value="NORTH">NORTH</button>
+                <button class="division-toggle division-toggle-btn" data-value="SOUTH">SOUTH</button>
+                <button class="division-toggle division-toggle-btn" data-value="WEST">WEST</button>
+            </div>
         </div>
         <div class="custom-logo-section">
             <label>Header Logo</label>
@@ -465,26 +597,20 @@
             <button id="sort-asc-btn">Sort Ascending</button>
             <button id="sort-desc-btn">Sort Descending</button>
         </div>
-        <div class="history-row">
-            <select id="history-select">
-                <option value="">History</option>
-            </select>
-            <button id="load-history-btn">Load</button>
-            <button id="delete-history-btn">Delete</button>
-        </div>
         <button class="custom-apply-btn" id="custom-apply-btn">Apply</button>
     </div>
     <div class="container">
     <div class="header">
+        <div class="history-controls" id="history-controls">
+            <button id="history-toggle-btn" class="history-toggle-btn">Snapshots</button>
+            <div id="history-popover" class="history-popover"></div>
+        </div>
         <div class="controls">
-            <select id="header-history-select" class="division-select" style="display:none;">
-                <option value="">History</option>
-            </select>
             <button id="edit-btn" class="edit-btn">Edit</button>
             <button id="export-btn" class="export-btn">Export PNG</button>
         </div>
         <div class="logo-container">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="Network Logo" id="network-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg" alt="Network Logo" id="network-logo" crossorigin="anonymous">
         </div>
         <div class="title" id="page-title">Custom</div>
         <div class="subtitle" id="page-subtitle"></div>
@@ -505,15 +631,15 @@
                 { label: 'ABC 7', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg', color: '#0d47a1,#1976d2' }
             ],
             nfc_north: [
-                { label: 'FOX 32 Chicago', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-chicago-a.svg', color: '#003a70,#0064b0' },
-                { label: 'FOX 2 Detroit', url: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Fts-detroit-a.svg', color: '#003a70,#0064b0' },
-                { label: 'FOX 9 Minneapolis', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Fts-minneapolis-a.svg', color: '#003a70,#0064b0' },
-                { label: 'FOX 11 Green Bay', url: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/Fts-green-bay-a.svg', color: '#003a70,#0064b0' }
+                { label: 'FOX 32 Chicago', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-chicago-a.svg', color: '#04134b,#04134b' },
+                { label: 'FOX 2 Detroit', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0c/Fts-detroit-a.svg', color: '#04134b,#04134b' },
+                { label: 'FOX 9 Minneapolis', url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Fts-minneapolis-a.svg', color: '#04134b,#04134b' },
+                { label: 'FOX 11 Green Bay', url: 'https://upload.wikimedia.org/wikipedia/commons/5/58/WLUK_Fox_11_solid_legal.svg', color: '#04134b,#04134b' }
             ],
             nfc_south: [
-                { label: 'FOX 5 Atlanta', url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Fts-atlanta-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 5 Atlanta', url: 'https://upload.wikimedia.org/wikipedia/commons/3/3f/Fts-atlanta-a.svg', color: '#003a70,#0064b0' },
                 { label: 'FOX 35 Orlando', url: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Fts-orlando-a.svg', color: '#003a70,#0064b0' },
-                { label: 'FOX 8 New Orleans', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Fts-new-orleans-a.svg', color: '#003a70,#0064b0' },
+                { label: 'FOX 8 New Orleans', url: 'https://upload.wikimedia.org/wikipedia/commons/0/02/Wvue-logo.svg', color: '#003a70,#0064b0' },
                 { label: 'FOX 13 Tampa Bay', url: 'https://upload.wikimedia.org/wikipedia/commons/6/67/Fts-tampa-a.svg', color: '#003a70,#0064b0' },
                 { label: 'FOX 46 Charlotte', url: 'https://upload.wikimedia.org/wikipedia/commons/5/5a/Fts-charlotte-a.svg', color: '#003a70,#0064b0' }
             ],
@@ -552,6 +678,7 @@
         let teamsData = [];
         let allTeamData = {};
         let divisionDataCache = {};
+        let divisionStationOverrides = {};
         let selectedConference = 'NFC';
         let selectedDivision = 'EAST';
         const SETTINGS_STORAGE_KEY = 'nflDivisionDashboard.settings.v1';
@@ -565,6 +692,11 @@
         let divisionStates = {};
         let settingsHistory = [];
         let autoSnapshotTimer = null;
+        let logoAnalysisRequestId = 0;
+        const CONFERENCE_LOGO_BY_KEY = {
+            AFC: 'https://upload.wikimedia.org/wikipedia/commons/7/7a/American_Football_Conference_logo.svg',
+            NFC: 'https://upload.wikimedia.org/wikipedia/commons/6/6f/National_Football_Conference_logo.svg'
+        };
 
         let selectedLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg';
         let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
@@ -577,12 +709,26 @@
             return `${selectedConference} ${selectedDivision}`;
         }
 
+        function renderDivisionButtons() {
+            document.querySelectorAll('.conference-toggle').forEach((button) => {
+                button.classList.toggle('active', button.dataset.value === selectedConference);
+            });
+            document.querySelectorAll('.division-toggle-btn').forEach((button) => {
+                button.classList.toggle('active', button.dataset.value === selectedDivision);
+            });
+        }
+
         function getDefaultStationsForDivision() {
-            const divisionStations = TV_STATIONS_BY_DIVISION[getDivisionKey()] || [];
+            const divisionStations = getStationsForDivision();
             return divisionStations[0] || {
                 url: 'https://upload.wikimedia.org/wikipedia/commons/9/9f/WPVI-TV_logos.svg',
                 color: '#1e3a8a,#3b82f6'
             };
+        }
+
+        function getStationsForDivision() {
+            const key = getDivisionKey();
+            return divisionStationOverrides[key] || TV_STATIONS_BY_DIVISION[key] || [];
         }
 
         function normalizeColorPair(colorCsv) {
@@ -599,6 +745,136 @@
                 return document.getElementById('custom-logo-url').value || selectedLogoUrl;
             }
             return selectedLogoUrl;
+        }
+
+        function setLogoBackgroundMode(enable) {
+            const header = document.querySelector('.header');
+            header.classList.toggle('dark-logo-bg', !!enable);
+        }
+
+        function shouldForceWhiteFoxLogo() {
+            const active = document.querySelector('.logo-toggle.active');
+            if (!active) return false;
+            return getDivisionKey() === 'nfc_north' && active.textContent.trim().startsWith('FOX');
+        }
+
+        function hexToRgb(hex) {
+            const clean = (hex || '').replace('#', '').trim();
+            const full = clean.length === 3
+                ? clean.split('').map((ch) => ch + ch).join('')
+                : clean;
+            if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
+            return {
+                r: parseInt(full.slice(0, 2), 16),
+                g: parseInt(full.slice(2, 4), 16),
+                b: parseInt(full.slice(4, 6), 16)
+            };
+        }
+
+        function colorDistance(a, b) {
+            const dr = a.r - b.r;
+            const dg = a.g - b.g;
+            const db = a.b - b.b;
+            return Math.sqrt((dr * dr) + (dg * dg) + (db * db));
+        }
+
+        function luminance(rgb) {
+            return (0.2126 * rgb.r) + (0.7152 * rgb.g) + (0.0722 * rgb.b);
+        }
+
+        function analyzeLogoProfile(url, bgHex) {
+            return new Promise((resolve) => {
+                if (!url) {
+                    resolve({ needsLightHeader: false, needsInvert: false, invertToWhite: true });
+                    return;
+                }
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 40;
+                        canvas.height = 40;
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                        ctx.clearRect(0, 0, 40, 40);
+                        ctx.drawImage(img, 0, 0, 40, 40);
+                        const data = ctx.getImageData(0, 0, 40, 40).data;
+
+                        let sampled = 0;
+                        let darkCount = 0;
+                        let alphaCount = 0;
+                        let sumR = 0;
+                        let sumG = 0;
+                        let sumB = 0;
+
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
+                            const a = data[i + 3];
+                            if (a < 20) continue;
+                            alphaCount++;
+                            const luminance = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+                            if (luminance < 48) darkCount++;
+                            sumR += r;
+                            sumG += g;
+                            sumB += b;
+                            sampled++;
+                        }
+
+                        if (!sampled || alphaCount < 40) {
+                            resolve({ needsLightHeader: false, needsInvert: false, invertToWhite: true });
+                            return;
+                        }
+
+                        const darkRatio = darkCount / sampled;
+                        const avg = {
+                            r: Math.round(sumR / sampled),
+                            g: Math.round(sumG / sampled),
+                            b: Math.round(sumB / sampled)
+                        };
+                        const bg = hexToRgb(bgHex) || { r: 30, g: 58, b: 138 };
+                        const similarToBg = colorDistance(avg, bg) < 62;
+                        const invertToWhite = luminance(bg) < 150;
+                        resolve({
+                            needsLightHeader: darkRatio > 0.65,
+                            needsInvert: similarToBg,
+                            invertToWhite
+                        });
+                    } catch (error) {
+                        resolve({ needsLightHeader: false, needsInvert: false, invertToWhite: true });
+                    }
+                };
+                img.onerror = () => resolve({ needsLightHeader: false, needsInvert: false, invertToWhite: true });
+                img.src = `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
+            });
+        }
+
+        function refreshLogoContrastBackground(url, bgHex) {
+            const requestId = ++logoAnalysisRequestId;
+            const networkLogo = document.getElementById('network-logo');
+            const forceWhiteFoxLogo = shouldForceWhiteFoxLogo();
+            networkLogo.classList.toggle('logo-white-invert', forceWhiteFoxLogo);
+            networkLogo.classList.remove('logo-black-invert');
+
+            if (forceWhiteFoxLogo) {
+                setLogoBackgroundMode(false);
+                return;
+            }
+
+            setLogoBackgroundMode(false);
+            analyzeLogoProfile(url, bgHex).then((profile) => {
+                if (requestId !== logoAnalysisRequestId) return;
+                if (profile.needsInvert) {
+                    networkLogo.classList.toggle('logo-white-invert', profile.invertToWhite);
+                    networkLogo.classList.toggle('logo-black-invert', !profile.invertToWhite);
+                    setLogoBackgroundMode(false);
+                    return;
+                }
+                networkLogo.classList.remove('logo-white-invert');
+                networkLogo.classList.remove('logo-black-invert');
+                setLogoBackgroundMode(profile.needsLightHeader);
+            });
         }
 
         function persistCurrentDivisionState() {
@@ -669,23 +945,90 @@
             }
         }
 
-        function renderHistoryOptions() {
-            const select = document.getElementById('history-select');
-            const headerSelect = document.getElementById('header-history-select');
-            select.innerHTML = '<option value="">History</option>';
-            headerSelect.innerHTML = '<option value="">History</option>';
-            settingsHistory.forEach((item) => {
-                const option = document.createElement('option');
-                option.value = item.id;
-                option.textContent = item.label;
-                select.appendChild(option);
+        function formatShortDateTime(timestamp) {
+            const d = new Date(timestamp);
+            return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+        }
 
-                const headerOption = document.createElement('option');
-                headerOption.value = item.id;
-                headerOption.textContent = item.label;
-                headerSelect.appendChild(headerOption);
+        function renderHistoryPopover() {
+            const controls = document.getElementById('history-controls');
+            const popover = document.getElementById('history-popover');
+            const toggle = document.getElementById('history-toggle-btn');
+
+            controls.style.display = settingsHistory.length ? 'flex' : 'none';
+            toggle.textContent = settingsHistory.length ? `Snapshots ${settingsHistory.length}` : 'Snapshots';
+            popover.innerHTML = '';
+
+            settingsHistory.forEach((item) => {
+                const confKey = item.conference || item.state?.selectedConference || '';
+                const divKey = item.division || item.state?.selectedDivision || '';
+                const stationUrl = item.stationLogoUrl || item.state?.selectedLogoUrl || '';
+                const row = document.createElement('div');
+                row.className = `history-item${item.auto ? ' auto' : ''}`;
+                row.dataset.id = item.id;
+
+                const top = document.createElement('div');
+                top.className = 'history-item-top';
+
+                const logos = document.createElement('div');
+                logos.className = 'history-item-logos';
+
+                if (CONFERENCE_LOGO_BY_KEY[confKey]) {
+                    const conf = document.createElement('img');
+                    conf.className = 'history-conf-logo';
+                    conf.alt = confKey || 'Conference';
+                    conf.src = CONFERENCE_LOGO_BY_KEY[confKey];
+                    logos.appendChild(conf);
+                }
+
+                if (stationUrl) {
+                    const station = document.createElement('img');
+                    station.className = 'history-station-logo';
+                    station.alt = item.stationLabel || 'Station';
+                    station.src = stationUrl;
+                    logos.appendChild(station);
+                }
+
+                const badge = document.createElement('span');
+                badge.className = 'history-division-badge';
+                badge.textContent = `${confKey} ${divKey}`.trim();
+                logos.appendChild(badge);
+
+                const del = document.createElement('button');
+                del.className = 'history-delete-btn';
+                del.type = 'button';
+                del.textContent = '\u00d7';
+                del.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    deleteSnapshotById(item.id);
+                });
+
+                top.appendChild(logos);
+                top.appendChild(del);
+                row.appendChild(top);
+
+                const title = document.createElement('div');
+                title.className = 'history-item-title';
+                title.textContent = item.title || 'Custom';
+                row.appendChild(title);
+
+                const subtitle = document.createElement('div');
+                subtitle.className = 'history-item-subtitle';
+                subtitle.textContent = item.subtitle || `In the ${confKey} ${divKey}`.trim();
+                row.appendChild(subtitle);
+
+                const date = document.createElement('div');
+                date.className = 'history-item-date';
+                date.textContent = formatShortDateTime(item.createdAt || Number(item.id));
+                row.appendChild(date);
+
+                row.addEventListener('click', () => {
+                    loadSnapshotById(item.id);
+                    document.getElementById('history-popover').classList.remove('visible');
+                });
+
+                popover.appendChild(row);
             });
-            headerSelect.style.display = settingsHistory.length ? 'inline-block' : 'none';
         }
 
         function saveSnapshot(auto = false) {
@@ -696,16 +1039,24 @@
                 return;
             }
             const now = new Date();
+            const activeLogo = document.querySelector('.logo-toggle.active');
             const snapshot = {
                 id: String(now.getTime()),
-                label: `${auto ? 'Auto' : 'Manual'} ${getDivisionLabel()} ${now.toLocaleString()}`,
+                createdAt: now.toISOString(),
+                conference: selectedConference,
+                division: selectedDivision,
+                stationLabel: activeLogo ? activeLogo.textContent.trim() : '',
+                stationLogoUrl: getSelectedLogoUrl(),
+                title: document.getElementById('custom-title').value || 'Custom',
+                subtitle: document.getElementById('custom-subtitle').value || `In the ${getDivisionLabel()}`,
+                auto: !!auto,
                 state: snapshotState,
                 stateKey
             };
             settingsHistory.unshift(snapshot);
             settingsHistory = settingsHistory.slice(0, HISTORY_LIMIT);
             saveHistoryToStorage();
-            renderHistoryOptions();
+            renderHistoryPopover();
         }
 
         function scheduleAutoSnapshot() {
@@ -726,9 +1077,7 @@
                 ? state.selectedHeaderColors
                 : selectedHeaderColors;
             document.getElementById('custom-logo-url').value = state.customLogoInput || '';
-
-            document.getElementById('conference-select').value = selectedConference;
-            document.getElementById('division-select').value = selectedDivision;
+            renderDivisionButtons();
 
             loadDivisionData().then(() => {
                 saveSettingsToStorage();
@@ -738,7 +1087,7 @@
         function deleteSnapshotById(snapshotId) {
             settingsHistory = settingsHistory.filter(item => item.id !== snapshotId);
             saveHistoryToStorage();
-            renderHistoryOptions();
+            renderHistoryPopover();
         }
 
         function applyStateForDivision() {
@@ -779,7 +1128,7 @@
 
             const buttons = document.createElement('div');
             buttons.className = 'logo-group-buttons';
-            (TV_STATIONS_BY_DIVISION[getDivisionKey()] || []).forEach((station) => {
+            getStationsForDivision().forEach((station) => {
                 const btn = document.createElement('button');
                 btn.className = 'logo-toggle';
                 btn.dataset.url = station.url;
@@ -796,7 +1145,7 @@
 
             const customBtn = document.querySelector('.logo-toggle[data-url="custom"]');
             if (customBtn) {
-                const hasDivisionMatch = (TV_STATIONS_BY_DIVISION[getDivisionKey()] || [])
+                const hasDivisionMatch = getStationsForDivision()
                     .some(station => station.url === selectedLogoUrl);
                 customBtn.classList.toggle('active', !hasDivisionMatch);
                 customBtn.removeEventListener('click', handleLogoToggleClick);
@@ -935,6 +1284,7 @@
             const networkLogo = document.getElementById('network-logo');
             networkLogo.src = logoUrl;
             networkLogo.alt = `${getDivisionLabel()} Network Logo`;
+            refreshLogoContrastBackground(logoUrl, selectedHeaderColors[0]);
             document.querySelector('.header').style.background =
                 `linear-gradient(135deg, ${selectedHeaderColors[0]} 0%, ${selectedHeaderColors[1]} 100%)`;
 
@@ -999,20 +1349,25 @@
                 .then((yamlText) => {
                     const parsed = jsyaml.load(yamlText) || {};
                     const teams = parsed[divisionKey] || [];
-                    divisionDataCache[divisionKey] = teams;
-                    return teams;
+                    const stations = parsed.station_logos || [];
+                    divisionDataCache[divisionKey] = { teams, stations };
+                    if (stations.length) {
+                        divisionStationOverrides[divisionKey] = stations;
+                    }
+                    return divisionDataCache[divisionKey];
                 })
                 .catch(() => {
                     const fallback = allTeamData[divisionKey] || [];
-                    divisionDataCache[divisionKey] = fallback;
-                    return fallback;
+                    divisionDataCache[divisionKey] = { teams: fallback, stations: [] };
+                    return divisionDataCache[divisionKey];
                 });
         }
 
         function loadDivisionData() {
             const divisionKey = getDivisionKey();
-            return fetchDivisionData(divisionKey).then((teams) => {
-                teamsData = teams;
+            return fetchDivisionData(divisionKey).then((data) => {
+                teamsData = data.teams || [];
+                renderDivisionButtons();
                 applyStateForDivision();
                 renderStationOptions();
                 renderCustomInputs();
@@ -1067,25 +1422,29 @@
             .then(response => response.text())
             .then(yamlText => {
                 allTeamData = jsyaml.load(yamlText) || {};
-
-                const conferenceSelect = document.getElementById('conference-select');
-                const divisionSelect = document.getElementById('division-select');
                 restoreSettingsFromStorage();
                 restoreHistoryFromStorage();
-                renderHistoryOptions();
-                conferenceSelect.value = selectedConference;
-                divisionSelect.value = selectedDivision;
+                renderHistoryPopover();
+                renderDivisionButtons();
 
-                conferenceSelect.addEventListener('change', (event) => {
-                    persistCurrentDivisionState();
-                    selectedConference = event.target.value;
-                    loadDivisionData().then(() => saveSettingsToStorage());
+                document.querySelectorAll('.conference-toggle').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const value = button.dataset.value;
+                        if (value === selectedConference) return;
+                        persistCurrentDivisionState();
+                        selectedConference = value;
+                        loadDivisionData().then(() => saveSettingsToStorage());
+                    });
                 });
 
-                divisionSelect.addEventListener('change', (event) => {
-                    persistCurrentDivisionState();
-                    selectedDivision = event.target.value;
-                    loadDivisionData().then(() => saveSettingsToStorage());
+                document.querySelectorAll('.division-toggle-btn').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const value = button.dataset.value;
+                        if (value === selectedDivision) return;
+                        persistCurrentDivisionState();
+                        selectedDivision = value;
+                        loadDivisionData().then(() => saveSettingsToStorage());
+                    });
                 });
 
                 document.getElementById('custom-logo-url').addEventListener('input', (event) => {
@@ -1109,23 +1468,15 @@
                 document.getElementById('custom-overlay').addEventListener('click', closeCustomPanel);
                 document.getElementById('edit-btn').addEventListener('click', openCustomPanel);
                 document.getElementById('export-btn').addEventListener('click', exportToPNG);
-                document.getElementById('load-history-btn').addEventListener('click', () => {
-                    const selectedId = document.getElementById('history-select').value;
-                    if (selectedId) loadSnapshotById(selectedId);
+                document.getElementById('history-toggle-btn').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    document.getElementById('history-popover').classList.toggle('visible');
                 });
-                document.getElementById('header-history-select').addEventListener('change', (event) => {
-                    const selectedId = event.target.value;
-                    if (!selectedId) return;
-                    loadSnapshotById(selectedId);
-                    event.target.value = '';
+                document.getElementById('history-popover').addEventListener('click', (event) => {
+                    event.stopPropagation();
                 });
-                document.getElementById('delete-history-btn').addEventListener('click', () => {
-                    const select = document.getElementById('history-select');
-                    const selectedId = select.value;
-                    if (!selectedId) return;
-                    deleteSnapshotById(selectedId);
-                    select.value = '';
-                    document.getElementById('header-history-select').value = '';
+                document.addEventListener('click', () => {
+                    document.getElementById('history-popover').classList.remove('visible');
                 });
 
                 loadDivisionData().then(() => saveSettingsToStorage());

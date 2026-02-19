@@ -3,7 +3,7 @@ nfc_north:
     logo: "https://upload.wikimedia.org/wikipedia/commons/5/5c/Chicago_Bears_logo.svg"
     color: "#0B162A"
   - team: Lions
-    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Detroit%20Lions%20logo.svg"
+    logo: "https://upload.wikimedia.org/wikipedia/en/7/71/Detroit_Lions_logo.svg"
     color: "#0076B6"
   - team: Packers
     logo: "https://upload.wikimedia.org/wikipedia/commons/5/50/Green_Bay_Packers_logo.svg"
