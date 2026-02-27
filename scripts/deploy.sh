@@ -72,6 +72,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
+git worktree prune >/dev/null 2>&1 || true
+EXISTING_WT_PATH="$(git worktree list --porcelain | awk -v b="refs/heads/${GH_PAGES_BRANCH}" '
+  $1=="worktree" { wt=$2 }
+  $1=="branch" && $2==b { print wt }
+')"
+if [[ -n "${EXISTING_WT_PATH}" ]]; then
+  echo "Removing existing ${GH_PAGES_BRANCH} worktree at ${EXISTING_WT_PATH} ..."
+  git worktree remove "${EXISTING_WT_PATH}" --force >/dev/null 2>&1 || true
+  git worktree prune >/dev/null 2>&1 || true
+fi
+
 if git ls-remote --exit-code --heads "${GITHUB_REMOTE}" "${GH_PAGES_BRANCH}" >/dev/null 2>&1; then
   git fetch "${GITHUB_REMOTE}" "${GH_PAGES_BRANCH}:${GH_PAGES_BRANCH}" >/dev/null 2>&1 || true
   git worktree add "${TMP_WT}" "${GH_PAGES_BRANCH}" >/dev/null
