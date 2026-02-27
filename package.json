@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "build:data": "node scripts/build-data.mjs",
+    "build:data:watch": "node scripts/build-data.mjs --watch",
     "fetch:logos": "node scripts/fetch-logos.mjs && npm run optimize:logos && npm run build:data",
     "optimize:logos": "svgo -f public/logos --config=svgo.config.mjs",
     "deploy": "bash scripts/deploy.sh",
     "predev": "npm run build:data",
     "prebuild": "npm run build:data",
-    "dev": "vite",
+    "dev": "npm run build:data:watch & vite",
     "build": "vite build",
     "preview": "vite preview"
   },

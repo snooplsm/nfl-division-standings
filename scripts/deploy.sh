@@ -1,27 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploys dist/ to S3 and updates Route53 for a custom domain.
+# Deploys dist/ to GitHub Pages (gh-pages branch) and updates Route53 DNS.
 #
-# Default domain here is nfl.rprtd.app (override via DOMAIN=...).
-# If you use nfl.rptd.app, run with DOMAIN=nfl.rptd.app.
-#
-# Modes:
-# 1) CloudFront mode (recommended): set CLOUDFRONT_DISTRIBUTION_ID.
-#    - Uploads to S3 bucket
-#    - Upserts Route53 A/AAAA ALIAS to CloudFront
-#    - Creates CloudFront invalidation
-#
-# 2) S3 website mode (fallback): no CLOUDFRONT_DISTRIBUTION_ID set.
-#    - Requires BUCKET == DOMAIN
-#    - Configures bucket website + public-read policy
-#    - Upserts Route53 A ALIAS to S3 website endpoint (HTTP only)
+# Default domain is nfl.rprtd.app (override via DOMAIN=...).
+# Expected DNS model:
+# - DOMAIN is a subdomain (e.g. nfl.rprtd.app), so Route53 uses CNAME
+# - CNAME points to <github-user>.github.io
 
 DOMAIN="${DOMAIN:-nfl.rprtd.app}"
-BUCKET="${BUCKET:-${DOMAIN}}"
-AWS_REGION="${AWS_REGION:-us-east-1}"
-CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 ROUTE53_ZONE_NAME="${ROUTE53_ZONE_NAME:-}"
+GITHUB_REMOTE="${GITHUB_REMOTE:-origin}"
+GH_PAGES_BRANCH="${GH_PAGES_BRANCH:-gh-pages}"
+GH_PAGES_TARGET="${GH_PAGES_TARGET:-}"
+REPO_ROOT="$(pwd)"
 
 if [[ -z "${ROUTE53_ZONE_NAME}" ]]; then
   # If DOMAIN has 3+ labels, default zone is parent (e.g. nfl.rprtd.app -> rprtd.app)
@@ -29,10 +21,10 @@ if [[ -z "${ROUTE53_ZONE_NAME}" ]]; then
     ROUTE53_ZONE_NAME="${DOMAIN#*.}"
   else
     ROUTE53_ZONE_NAME="${DOMAIN}"
-  fi
+  fi 
 fi
 
-for cmd in aws npm; do
+for cmd in git aws npm; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Missing required command: $cmd"
     exit 1
@@ -44,37 +36,70 @@ if [[ ! -d "dist" ]]; then
   npm run build
 fi
 
+REMOTE_URL="$(git remote get-url "${GITHUB_REMOTE}")"
+OWNER_REPO="$(printf '%s' "${REMOTE_URL}" | sed -E 's#^git@github.com:##; s#^https://github.com/##; s#\.git$##')"
+GH_OWNER="$(printf '%s' "${OWNER_REPO}" | cut -d/ -f1)"
+GH_REPO="$(printf '%s' "${OWNER_REPO}" | cut -d/ -f2)"
+if [[ -z "${GH_OWNER}" || -z "${GH_REPO}" || "${GH_OWNER}" == "${GH_REPO}" ]]; then
+  echo "Could not parse GitHub owner/repo from remote '${GITHUB_REMOTE}': ${REMOTE_URL}"
+  exit 1
+fi
+
+if [[ -z "${GH_PAGES_TARGET}" ]]; then
+  GH_PAGES_TARGET="${GH_OWNER}.github.io"
+fi
+
+# Allow convenience input like "owner/repo" and normalize to the required DNS host.
+if [[ "${GH_PAGES_TARGET}" == */* ]]; then
+  GH_PAGES_TARGET="${GH_PAGES_TARGET%%/*}.github.io"
+fi
+
 echo "Deploy config:"
 echo "  DOMAIN=${DOMAIN}"
-echo "  BUCKET=${BUCKET}"
-echo "  AWS_REGION=${AWS_REGION}"
+echo "  GITHUB_REMOTE=${GITHUB_REMOTE}"
+echo "  GH_PAGES_BRANCH=${GH_PAGES_BRANCH}"
+echo "  GH_OWNER=${GH_OWNER}"
+echo "  GH_REPO=${GH_REPO}"
+echo "  GH_PAGES_TARGET=${GH_PAGES_TARGET}"
 echo "  ROUTE53_ZONE_NAME=${ROUTE53_ZONE_NAME}"
-if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
-  echo "  MODE=cloudfront (${CLOUDFRONT_DISTRIBUTION_ID})"
+echo "  MODE=github-pages+route53"
+
+echo "Publishing dist/ to GitHub Pages branch (${GH_PAGES_BRANCH})..."
+TMP_WT="$(mktemp -d)"
+cleanup() {
+  git worktree remove "${TMP_WT}" --force >/dev/null 2>&1 || true
+  rm -rf "${TMP_WT}"
+}
+trap cleanup EXIT
+
+if git ls-remote --exit-code --heads "${GITHUB_REMOTE}" "${GH_PAGES_BRANCH}" >/dev/null 2>&1; then
+  git fetch "${GITHUB_REMOTE}" "${GH_PAGES_BRANCH}:${GH_PAGES_BRANCH}" >/dev/null 2>&1 || true
+  git worktree add "${TMP_WT}" "${GH_PAGES_BRANCH}" >/dev/null
 else
-  echo "  MODE=s3-website"
+  git worktree add --detach "${TMP_WT}" >/dev/null
+  (
+    cd "${TMP_WT}"
+    git checkout --orphan "${GH_PAGES_BRANCH}" >/dev/null
+    git reset --hard >/dev/null
+  )
 fi
 
-if ! aws s3api head-bucket --bucket "${BUCKET}" >/dev/null 2>&1; then
-  echo "Bucket ${BUCKET} not found, creating..."
-  if [[ "${AWS_REGION}" == "us-east-1" ]]; then
-    aws s3api create-bucket --bucket "${BUCKET}"
+(
+  cd "${TMP_WT}"
+  find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+  cp -R "${REPO_ROOT}/dist/." .
+  printf '%s\n' "${DOMAIN}" > CNAME
+  : > .nojekyll
+
+  git add -A
+  if git diff --staged --quiet; then
+    echo "No changes to publish on ${GH_PAGES_BRANCH}."
   else
-    aws s3api create-bucket \
-      --bucket "${BUCKET}" \
-      --create-bucket-configuration "LocationConstraint=${AWS_REGION}"
+    git commit -m "Deploy ${DOMAIN} $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >/dev/null
+    git push "${GITHUB_REMOTE}" "${GH_PAGES_BRANCH}:${GH_PAGES_BRANCH}" >/dev/null
+    echo "Pushed updated site to ${GITHUB_REMOTE}/${GH_PAGES_BRANCH}."
   fi
-fi
-
-echo "Uploading files to s3://${BUCKET} ..."
-aws s3 sync dist "s3://${BUCKET}" \
-  --delete \
-  --exclude "index.html" \
-  --cache-control "public,max-age=31536000,immutable"
-
-aws s3 cp dist/index.html "s3://${BUCKET}/index.html" \
-  --cache-control "public,max-age=60,must-revalidate" \
-  --content-type "text/html; charset=utf-8"
+)
 
 HOSTED_ZONE_ID="$(aws route53 list-hosted-zones-by-name \
   --dns-name "${ROUTE53_ZONE_NAME}" \
@@ -89,94 +114,9 @@ fi
 TMP_JSON="$(mktemp)"
 trap 'rm -f "${TMP_JSON}"' EXIT
 
-if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
-  CF_DOMAIN="$(aws cloudfront get-distribution --id "${CLOUDFRONT_DISTRIBUTION_ID}" --query 'Distribution.DomainName' --output text)"
-
-  cat >"${TMP_JSON}" <<JSON
+cat >"${TMP_JSON}" <<JSON
 {
-  "Comment": "Deploy ${DOMAIN} to CloudFront",
-  "Changes": [
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "${DOMAIN}",
-        "Type": "A",
-        "AliasTarget": {
-          "HostedZoneId": "Z2FDTNDATAQYW2",
-          "DNSName": "${CF_DOMAIN}",
-          "EvaluateTargetHealth": false
-        }
-      }
-    },
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "${DOMAIN}",
-        "Type": "AAAA",
-        "AliasTarget": {
-          "HostedZoneId": "Z2FDTNDATAQYW2",
-          "DNSName": "${CF_DOMAIN}",
-          "EvaluateTargetHealth": false
-        }
-      }
-    }
-  ]
-}
-JSON
-
-  echo "Updating Route53 records to CloudFront (${CF_DOMAIN}) ..."
-  aws route53 change-resource-record-sets \
-    --hosted-zone-id "${HOSTED_ZONE_ID}" \
-    --change-batch "file://${TMP_JSON}" >/dev/null
-
-  echo "Creating CloudFront invalidation..."
-  aws cloudfront create-invalidation \
-    --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-    --paths "/*" >/dev/null
-
-  echo "Deploy complete: https://${DOMAIN}"
-else
-  if [[ "${BUCKET}" != "${DOMAIN}" ]]; then
-    echo "S3 website mode requires BUCKET == DOMAIN."
-    echo "Current BUCKET=${BUCKET}, DOMAIN=${DOMAIN}."
-    echo "Set CLOUDFRONT_DISTRIBUTION_ID for bucket/domain mismatch."
-    exit 1
-  fi
-
-  aws s3 website "s3://${BUCKET}" \
-    --index-document index.html \
-    --error-document index.html
-
-  aws s3api put-public-access-block \
-    --bucket "${BUCKET}" \
-    --public-access-block-configuration \
-      BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false
-
-  cat >"${TMP_JSON}" <<JSON
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::${BUCKET}/*"]
-    }
-  ]
-}
-JSON
-
-  aws s3api put-bucket-policy \
-    --bucket "${BUCKET}" \
-    --policy "file://${TMP_JSON}"
-
-  S3_WEBSITE_DNS="${BUCKET}.s3-website-${AWS_REGION}.amazonaws.com"
-
-  # Fallback: use simple CNAME if alias-zone lookup is unavailable for your partition/region.
-  cat >"${TMP_JSON}" <<JSON
-{
-  "Comment": "Deploy ${DOMAIN} to S3 website",
+  "Comment": "Deploy ${DOMAIN} to GitHub Pages",
   "Changes": [
     {
       "Action": "UPSERT",
@@ -184,17 +124,17 @@ JSON
         "Name": "${DOMAIN}",
         "Type": "CNAME",
         "TTL": 300,
-        "ResourceRecords": [{"Value": "${S3_WEBSITE_DNS}"}]
+        "ResourceRecords": [{"Value": "${GH_PAGES_TARGET}"}]
       }
     }
   ]
 }
 JSON
 
-  echo "Updating Route53 CNAME to S3 website (${S3_WEBSITE_DNS}) ..."
-  aws route53 change-resource-record-sets \
-    --hosted-zone-id "${HOSTED_ZONE_ID}" \
-    --change-batch "file://${TMP_JSON}" >/dev/null
+echo "Updating Route53 CNAME to GitHub Pages (${GH_PAGES_TARGET}) ..."
+aws route53 change-resource-record-sets \
+  --hosted-zone-id "${HOSTED_ZONE_ID}" \
+  --change-batch "file://${TMP_JSON}" >/dev/null
 
-  echo "Deploy complete (HTTP): http://${DOMAIN}"
-fi
+echo "Deploy complete: https://${DOMAIN}"
+echo "If this repo is not already configured for GitHub Pages, set Pages source to branch '${GH_PAGES_BRANCH}' (root)."

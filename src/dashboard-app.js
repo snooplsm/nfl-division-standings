@@ -29,6 +29,7 @@
 
         let selectedLogoUrl = EMPTY_SVG_DATA_URL;
         let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
+        let previewStationConfig = null;
         function getDomToImage() {
             return Promise.resolve(window.domtoimage);
         }
@@ -151,6 +152,12 @@
             return true;
         }
 
+        function getExportDisplayUrl() {
+            if (IS_LOCALHOST) return 'https://nfl.rprtd.app';
+            const { protocol, host, pathname } = window.location;
+            return `${protocol}//${host}${pathname || '/'}`;
+        }
+
         function getDivisionKey() {
             return `${selectedConference.toLowerCase()}_${selectedDivision.toLowerCase()}`;
         }
@@ -271,7 +278,11 @@
 
         function getReadableHeaderColors(colors) {
             const stationLabel = getSelectedStationLabel();
-            const sourceColors = isFoxStationExcept29(stationLabel) ? FOX_BASE_GRADIENT : colors;
+            const station = getSelectedStationConfig();
+            const explicitNullTint = !!(station && station.hasExplicitTint && station.tint === null);
+            const sourceColors = (isFoxStationExcept29(stationLabel) && !explicitNullTint)
+                ? FOX_BASE_GRADIENT
+                : colors;
             const c1 = darkenForWhiteText(tintTowardBlue(sourceColors[0]));
             const c2 = darkenForWhiteText(tintTowardBlue(sourceColors[1]));
             if (c1.toLowerCase() === c2.toLowerCase()) {
@@ -290,6 +301,7 @@
         }
 
         function getSelectedStationConfig() {
+            if (previewStationConfig) return previewStationConfig;
             const active = document.querySelector('.logo-toggle.active');
             if (active && active.dataset.url === 'custom') return null;
             const selected = active ? active.dataset.url : getSelectedLogoUrl();
@@ -411,14 +423,39 @@
         function refreshLogoContrastBackground(url, bgHex) {
             const requestId = ++logoAnalysisRequestId;
             const networkLogo = document.getElementById('network-logo');
+            const header = document.querySelector('.header');
             const station = getSelectedStationConfig();
             const tint = station ? (station.tint ?? null) : null;
             const disableAutoTint = !!(station && station.hasExplicitTint && tint === null);
-            const forceWhiteFoxLogo = shouldForceWhiteFoxLogo();
+            const forceWhiteFoxLogo = !disableAutoTint && shouldForceWhiteFoxLogo();
+            const foxLogoPop = !!(station && !station.hasExplicitTint && /fox/i.test(station.label || ''));
+            networkLogo.classList.toggle('fox-pop-logo', foxLogoPop);
+            if (header) header.classList.toggle('fox-pop-header', foxLogoPop);
+            console.log('[contrast] start', {
+                requestId,
+                url,
+                bgHex,
+                stationLabel: station ? station.label : null,
+                tint,
+                hasExplicitTint: !!(station && station.hasExplicitTint),
+                disableAutoTint,
+                forceWhiteFoxLogo,
+                foxLogoPop
+            });
             networkLogo.classList.toggle('logo-white-invert', tint === 'white' || forceWhiteFoxLogo);
             networkLogo.classList.remove('logo-black-invert');
 
+            // Explicit null means never apply tint/invert logic.
+            if (disableAutoTint) {
+                console.log('[contrast] branch: explicit-null-no-tint');
+                networkLogo.classList.remove('logo-white-invert');
+                networkLogo.classList.remove('logo-black-invert');
+                setLogoBackgroundMode(false);
+                return;
+            }
+
             if (tint === 'black') {
+                console.log('[contrast] branch: force-black');
                 networkLogo.classList.remove('logo-white-invert');
                 networkLogo.classList.add('logo-black-invert');
                 setLogoBackgroundMode(false);
@@ -426,19 +463,27 @@
             }
 
             if (tint === 'white' || forceWhiteFoxLogo) {
+                console.log('[contrast] branch: force-white');
                 setLogoBackgroundMode(false);
                 return;
             }
 
+            console.log('[contrast] branch: analyze-profile');
             setLogoBackgroundMode(false);
             analyzeLogoProfile(url, bgHex).then((profile) => {
-                if (requestId !== logoAnalysisRequestId) return;
+                if (requestId !== logoAnalysisRequestId) {
+                    console.log('[contrast] branch: stale-request-skip', { requestId, activeRequestId: logoAnalysisRequestId });
+                    return;
+                }
+                console.log('[contrast] profile', profile);
                 if (profile.needsInvert && !disableAutoTint) {
+                    console.log('[contrast] branch: auto-invert', { invertToWhite: profile.invertToWhite });
                     networkLogo.classList.toggle('logo-white-invert', profile.invertToWhite);
                     networkLogo.classList.toggle('logo-black-invert', !profile.invertToWhite);
                     setLogoBackgroundMode(false);
                     return;
                 }
+                console.log('[contrast] branch: no-invert', { needsLightHeader: profile.needsLightHeader });
                 networkLogo.classList.remove('logo-white-invert');
                 networkLogo.classList.remove('logo-black-invert');
                 setLogoBackgroundMode(profile.needsLightHeader);
@@ -616,7 +661,7 @@
 
                 const title = document.createElement('div');
                 title.className = 'history-item-title';
-                title.textContent = item.title || 'Custom';
+                title.textContent = item.title || 'NFL Meme War';
                 row.appendChild(title);
 
                 const subtitle = document.createElement('div');
@@ -668,7 +713,7 @@
                 division: selectedDivision,
                 stationLabel: activeLogo ? activeLogo.textContent.trim() : '',
                 stationLogoUrl: getSelectedLogoUrl(),
-                title: document.getElementById('custom-title').value || 'Custom',
+                title: document.getElementById('custom-title').value || 'NFL Meme War',
                 subtitle: document.getElementById('custom-subtitle').value || `In the ${getDivisionLabel()}`,
                 auto: !!auto,
                 state: snapshotState,
@@ -787,6 +832,8 @@
                     btn.classList.add('active');
                 }
                 btn.addEventListener('click', handleLogoToggleClick);
+                btn.addEventListener('mouseenter', () => previewStationOption(station));
+                btn.addEventListener('mouseleave', restoreStationPreview);
                 buttons.appendChild(btn);
             });
             group.appendChild(buttons);
@@ -809,7 +856,28 @@
             }
         }
 
+        function previewStationOption(station) {
+            if (!station || !station.url) return;
+            const networkLogo = document.getElementById('network-logo');
+            const header = document.querySelector('.header');
+            if (!networkLogo || !header) return;
+
+            previewStationConfig = station;
+            const previewColors = normalizeColorPair(station.color || selectedHeaderColors.join(','));
+            const readableColors = getReadableHeaderColors(previewColors);
+            networkLogo.src = withLocalNoCache(station.url);
+            networkLogo.alt = `${station.label || getDivisionLabel()} Network Logo`;
+            refreshLogoContrastBackground(station.url, previewColors[0]);
+            header.style.background = `linear-gradient(135deg, ${readableColors[0]} 0%, ${readableColors[1]} 100%)`;
+        }
+
+        function restoreStationPreview() {
+            previewStationConfig = null;
+            renderCustomTeams();
+        }
+
         function handleLogoToggleClick(e) {
+            previewStationConfig = null;
             const btn = e.currentTarget;
             document.querySelectorAll('.logo-toggle').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -924,7 +992,7 @@
         }
 
         function renderCustomTeams() {
-            const title = document.getElementById('custom-title').value || 'Custom';
+            const title = document.getElementById('custom-title').value || 'NFL Meme War';
             const subtitle = document.getElementById('custom-subtitle').value || `In the ${getDivisionLabel()}`;
             const logoUrl = getSelectedLogoUrl();
 
@@ -1032,6 +1100,8 @@
             const prevControlsDisplay = controls.style.display;
             const prevHistoryControlsDisplay = historyControls ? historyControls.style.display : '';
             const wasHistoryPopoverVisible = !!historyPopover && historyPopover.classList.contains('visible');
+            const prevContainerPosition = containerElement.style.position;
+            let exportUrlBadge = null;
             controls.style.display = 'none';
             if (historyControls) {
                 historyControls.style.display = 'none';
@@ -1039,6 +1109,24 @@
             if (historyPopover) {
                 historyPopover.classList.remove('visible');
             }
+
+            containerElement.style.position = 'relative';
+            exportUrlBadge = document.createElement('div');
+            exportUrlBadge.id = 'export-url-badge';
+            exportUrlBadge.textContent = getExportDisplayUrl();
+            exportUrlBadge.style.position = 'absolute';
+            exportUrlBadge.style.left = '50%';
+            exportUrlBadge.style.bottom = '18px';
+            exportUrlBadge.style.transform = 'translateX(-50%)';
+            exportUrlBadge.style.fontFamily = 'Arial Black, Arial, sans-serif';
+            exportUrlBadge.style.fontSize = '24px';
+            exportUrlBadge.style.fontWeight = '700';
+            exportUrlBadge.style.letterSpacing = '0.5px';
+            exportUrlBadge.style.color = 'rgba(255,255,255,0.75)';
+            exportUrlBadge.style.textShadow = '0 2px 8px rgba(0,0,0,0.55)';
+            exportUrlBadge.style.pointerEvents = 'none';
+            exportUrlBadge.style.zIndex = '9999';
+            containerElement.appendChild(exportUrlBadge);
             exportBtn.textContent = 'Exporting...';
             exportBtn.disabled = true;
             console.log('[export] ui locked');
@@ -1094,6 +1182,10 @@
                     })
                     .finally(() => {
                         console.log('[export] finally restore ui');
+                        if (exportUrlBadge && exportUrlBadge.parentNode) {
+                            exportUrlBadge.parentNode.removeChild(exportUrlBadge);
+                        }
+                        containerElement.style.position = prevContainerPosition;
                         controls.style.display = prevControlsDisplay || 'flex';
                         if (historyControls) {
                             historyControls.style.display = prevHistoryControlsDisplay;

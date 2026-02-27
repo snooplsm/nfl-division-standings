@@ -17,7 +17,7 @@ nfc_east:
 
 nfc_north:
   - label: "FOX 32 Chicago"
-    url: "https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-chicago-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/e/eb/Fts-chicago-c.svg"
     color: "#04134b,#04134b"
   - label: "FOX 2 Detroit"
     url: "https://upload.wikimedia.org/wikipedia/commons/0/0c/Fts-detroit-a.svg"
@@ -28,6 +28,7 @@ nfc_north:
   - label: "FOX 11 Green Bay"
     url: "https://upload.wikimedia.org/wikipedia/commons/5/58/WLUK_Fox_11_solid_legal.svg"
     color: "#04134b,#04134b"
+    tint: null
 
 nfc_south:
   - label: "FOX 5 Atlanta"
@@ -53,16 +54,16 @@ nfc_south:
 
 nfc_west:
   - label: "FOX 10 Arizona"
-    url: "https://upload.wikimedia.org/wikipedia/commons/9/9b/Fts-phoenix-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-phoenix-a.svg"
     color: "#003a70,#0064b0"
   - label: "FOX 11 Los Angeles"
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Fts-los-angeles-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Fts-los-angeles-a.svg"
     color: "#003a70,#0064b0"
   - label: "FOX 2 San Francisco"
-    url: "https://upload.wikimedia.org/wikipedia/commons/8/89/Fts-san-francisco-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/0/09/KTVU_2020_blue_logo.svg"
     color: "#003a70,#0064b0"
   - label: "FOX 13 Seattle"
-    url: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Fts-seattle-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/1/15/Fts-seattle-a.svg"
     color: "#003a70,#0064b0"
 
 afc_east:
@@ -70,10 +71,12 @@ afc_east:
     url: "https://upload.wikimedia.org/wikipedia/commons/9/9b/WCVB-TV_alternate_2021.svg"
     color: "#b71c1c,#e53935"
   - label: "FOX Buffalo"
-    url: "https://upload.wikimedia.org/wikipedia/commons/3/35/Fts-buffalo-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/1/18/WUTV_Fox_29_2021_Logo.svg"
     color: "#003a70,#0064b0"
+    tint: null
   - label: "WSVN 7 Miami"
-    url: "https://upload.wikimedia.org/wikipedia/commons/9/95/Wsvn-miami.svg"
+    tint: null
+    url: "https://upload.wikimedia.org/wikipedia/commons/b/ba/WSVN-WDFL_ABC_Miami_%282025%29.svg"
     color: "#1e293b,#475569"
   - label: "ABC 7 NY"
     url: "https://upload.wikimedia.org/wikipedia/commons/a/a3/WABC_TV_New_2021.svg"
@@ -81,42 +84,50 @@ afc_east:
 
 afc_north:
   - label: "FOX 43 PIT"
-    url: "https://upload.wikimedia.org/wikipedia/commons/4/4d/Fts-pittsburgh-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/WPMTegna.svg/3840px-WPMTegna.svg.png"
     color: "#003a70,#0064b0"
   - label: "FOX 19 CIN"
-    url: "https://upload.wikimedia.org/wikipedia/commons/b/b8/Fts-cincinnati-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/en/a/af/WXIX-TV_logo.svg"
     color: "#003a70,#0064b0"
+    tint: null
   - label: "FOX 8 CLE"
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/01/Fts-cleveland-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/0/0b/WJW_2008.svg"
     color: "#003a70,#0064b0"
+    tint: null
   - label: "FOX 45 BAL"
-    url: "https://upload.wikimedia.org/wikipedia/commons/5/59/Fts-baltimore-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/a/ae/WBFF_Fox_45_solid_calls.svg"
     color: "#003a70,#0064b0"
+    tint: null
 
 afc_south:
   - label: "FOX 26 Houston"
     url: "https://upload.wikimedia.org/wikipedia/commons/a/ae/Fts-houston-a.svg"
     color: "#003a70,#0064b0"
   - label: "FOX 59 Indianapolis"
-    url: "https://upload.wikimedia.org/wikipedia/commons/6/61/Fts-indianapolis-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/b/b5/WXIN_%282020%29.svg"
+    tint: null
     color: "#003a70,#0064b0"
   - label: "FOX 30 Jacksonville"
-    url: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Fts-jacksonville-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/6/6f/WFOX_Fox_30_1.svg"
     color: "#003a70,#0064b0"
   - label: "FOX 17 Tennessee"
-    url: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Fts-nashville-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/9/90/WZTV_%282011%29.svg"
+    tint: null
     color: "#003a70,#0064b0"
 
 afc_west:
   - label: "FOX 31 Denver"
-    url: "https://upload.wikimedia.org/wikipedia/commons/e/e6/Fts-denver-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/a/a3/Kdvr-primary.svg"
     color: "#003a70,#0064b0"
+    tint: null
   - label: "FOX 4 Kansas City"
-    url: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Fts-kansas-city-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/7/7b/WDAF_Fox_4_%282025%29.svg"
     color: "#003a70,#0064b0"
+    tint: null
   - label: "FOX 5 Nevada"
-    url: "https://upload.wikimedia.org/wikipedia/commons/1/18/Fts-las-vegas-a.svg"
-    color: "#003a70,#0064b0"
-  - label: "FOX 11 LA Chargers"
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Fts-los-angeles-a.svg"
+    url: "https://upload.wikimedia.org/wikipedia/commons/5/54/KVVU-TV_Fox_5_Henderson_-_Las_Vegas.svg"
+    color: "#333233,#333233"
+    tint: null
+  - label: "FOX 11 LA"
+    url: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Fts-los-angeles-a.svg"
     color: "#003a70,#0064b0"
