@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NFL Division Dashboard</title>
+    <script type="module" crossorigin src="/assets/index-CFIc4byX.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/style-wv45WnwI.css">
+  </head>
+  <body>
+    <div class="custom-overlay" id="custom-overlay"></div>
+    <div class="custom-panel" id="custom-panel">
+      <h3>Custom Values</h3>
+      <div class="custom-title-row">
+        <input type="text" id="custom-title" placeholder="Title (e.g. Rushing Yards)" />
+        <input type="text" id="custom-subtitle" placeholder="Subtitle (e.g. In the NFC East)" />
+      </div>
+      <div class="division-row">
+        <div class="division-group" id="conference-buttons">
+          <button class="division-toggle conference-toggle" data-value="NFC">NFC</button>
+          <button class="division-toggle conference-toggle" data-value="AFC">AFC</button>
+        </div>
+        <div class="division-group" id="division-buttons">
+          <button class="division-toggle division-toggle-btn" data-value="EAST">EAST</button>
+          <button class="division-toggle division-toggle-btn" data-value="NORTH">NORTH</button>
+          <button class="division-toggle division-toggle-btn" data-value="SOUTH">SOUTH</button>
+          <button class="division-toggle division-toggle-btn" data-value="WEST">WEST</button>
+        </div>
+      </div>
+      <div class="custom-logo-section">
+        <label>Header Logo</label>
+        <div id="division-station-options"></div>
+        <div class="logo-group">
+          <div class="logo-group-label">Custom</div>
+          <div class="logo-group-buttons">
+            <button class="logo-toggle" data-url="custom" data-color="#1e3a8a,#3b82f6">URL...</button>
+          </div>
+          <input type="text" id="custom-logo-url" class="custom-logo-url" placeholder="Enter SVG URL..." />
+        </div>
+      </div>
+      <div id="custom-team-inputs"></div>
+      <div class="custom-sort-row">
+        <button id="sort-asc-btn">Sort Ascending</button>
+        <button id="sort-desc-btn">Sort Descending</button>
+      </div>
+      <button class="custom-apply-btn" id="custom-apply-btn">Apply</button>
+    </div>
+
+    <div class="container">
+      <div class="header">
+        <div class="history-controls" id="history-controls">
+          <button id="history-toggle-btn" class="history-toggle-btn">Snapshots</button>
+          <div id="history-popover" class="history-popover"></div>
+        </div>
+        <div class="controls">
+          <button id="edit-btn" class="edit-btn">Edit</button>
+          <button id="export-btn" class="export-btn">Export PNG</button>
+        </div>
+        <div class="logo-container">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Network Logo" id="network-logo" crossorigin="anonymous" />
+        </div>
+        <div class="title" id="page-title">Custom</div>
+        <div class="subtitle" id="page-subtitle"></div>
+      </div>
+
+      <div class="teams-container" id="teams-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js"></script>
+  </body>
+</html>
