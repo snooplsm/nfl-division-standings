@@ -155,7 +155,8 @@
         function getExportDisplayUrl() {
             if (IS_LOCALHOST) return 'https://nfl.rprtd.app';
             const { protocol, host, pathname } = window.location;
-            return `${protocol}//${host}${pathname || '/'}`;
+            const raw = `${protocol}//${host}${pathname || '/'}`;
+            return raw.replace(/\/+$/, '');
         }
 
         function getDivisionKey() {
