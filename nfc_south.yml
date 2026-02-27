@@ -11,20 +11,3 @@ nfc_south:
   - team: Buccaneers
     logo: "https://upload.wikimedia.org/wikipedia/en/a/a2/Tampa_Bay_Buccaneers_logo.svg"
     color: "#D50A0A"
-
-station_logos:
-  - label: "FOX 5 Atlanta"
-    url: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fts-atlanta-a.svg"
-    color: "#003a70,#0064b0"
-  - label: "FOX 35 Orlando"
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/08/Fts-orlando-a.svg"
-    color: "#003a70,#0064b0"
-  - label: "FOX 8 New Orleans"
-    url: "https://upload.wikimedia.org/wikipedia/commons/0/02/Wvue-logo.svg"
-    color: "#003a70,#0064b0"
-  - label: "FOX 13 Tampa Bay"
-    url: "https://upload.wikimedia.org/wikipedia/commons/8/83/Fts-tampa-bay-a.svg"
-    color: "#003a70,#0064b0"
-  - label: "FOX 46 Charlotte"
-    url: "https://upload.wikimedia.org/wikipedia/commons/7/7c/WJZY_Fox_Charlotte_2022.svg"
-    color: "#003a70,#0064b0"
