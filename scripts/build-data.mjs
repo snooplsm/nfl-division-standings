@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, watch } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, watch, mkdirSync, copyFileSync } from 'node:fs'
 import path from 'node:path'
 import yaml from 'js-yaml'
 
@@ -68,6 +68,37 @@ function buildData() {
   )
 
   console.log('Wrote public/data.json')
+
+  const ffmpegDir = path.join(root, 'public', 'ffmpeg')
+  mkdirSync(ffmpegDir, { recursive: true })
+  const ffmpegCopies = [
+    {
+      from: path.join(root, 'node_modules', '@ffmpeg', 'core', 'dist', 'esm', 'ffmpeg-core.js'),
+      to: path.join(ffmpegDir, 'ffmpeg-core.js')
+    },
+    {
+      from: path.join(root, 'node_modules', '@ffmpeg', 'core', 'dist', 'esm', 'ffmpeg-core.wasm'),
+      to: path.join(ffmpegDir, 'ffmpeg-core.wasm')
+    },
+    {
+      from: path.join(root, 'node_modules', '@ffmpeg', 'ffmpeg', 'dist', 'esm', 'worker.js'),
+      to: path.join(ffmpegDir, 'ffmpeg-class-worker.js')
+    },
+    {
+      from: path.join(root, 'node_modules', '@ffmpeg', 'ffmpeg', 'dist', 'esm', 'const.js'),
+      to: path.join(ffmpegDir, 'const.js')
+    },
+    {
+      from: path.join(root, 'node_modules', '@ffmpeg', 'ffmpeg', 'dist', 'esm', 'errors.js'),
+      to: path.join(ffmpegDir, 'errors.js')
+    }
+  ]
+  for (const { from, to } of ffmpegCopies) {
+    if (existsSync(from)) {
+      copyFileSync(from, to)
+    }
+  }
+  console.log('Synced public/ffmpeg runtime files')
 }
 
 buildData()

@@ -15,7 +15,8 @@
 
         // Custom panel state
         let customOrder = []; // team names in drag order
-        let customValues = {}; // team -> value
+        let customValues = {}; // team -> end value
+        let customStartValues = {}; // team -> start value
         let customDragSrc = null;
         let divisionStates = {};
         let settingsHistory = [];
@@ -30,8 +31,342 @@
         let selectedLogoUrl = EMPTY_SVG_DATA_URL;
         let selectedHeaderColors = ['#1e3a8a', '#3b82f6'];
         let previewStationConfig = null;
+        let activeProcessingSession = null;
+        let timelineProgress = 1;
+        let timelineDurationMs = 3000;
+        let timelineMoveSeconds = 1.0;
+        let lastRenderedFrameSignature = '';
+        let exportCaptureForwardOnly = false;
         function getDomToImage() {
             return Promise.resolve(window.domtoimage);
+        }
+
+        function beginProcessingSession(kind, onCancel) {
+            if (activeProcessingSession) return null;
+            const session = {
+                kind,
+                cancelled: false,
+                onCancel
+            };
+            const onKeyDown = (event) => {
+                if (event.key !== 'Escape') return;
+                event.preventDefault();
+                if (session.cancelled) return;
+                session.cancelled = true;
+                console.log(`[${kind}] cancelled via Escape`);
+                try {
+                    if (typeof session.onCancel === 'function') session.onCancel();
+                } catch (error) {
+                    console.warn(`[${kind}] cancel handler error`, error);
+                }
+            };
+            session.detach = () => window.removeEventListener('keydown', onKeyDown, true);
+            window.addEventListener('keydown', onKeyDown, true);
+            activeProcessingSession = session;
+            return session;
+        }
+
+        function endProcessingSession(session) {
+            if (!session) return;
+            if (typeof session.detach === 'function') session.detach();
+            if (activeProcessingSession === session) {
+                activeProcessingSession = null;
+            }
+        }
+
+        function parseNumericValue(value) {
+            if (value === null || value === undefined) return null;
+            const text = String(value).trim();
+            if (!text.length) return null;
+            const n = Number(text);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function hasAnimationTargets() {
+            return customOrder.some((team) => {
+                const end = parseNumericValue(customValues[team]);
+                return end !== null;
+            });
+        }
+
+        function toPingPongProgress(raw) {
+            const t = Math.max(0, Math.min(1, Number(raw) || 0));
+            return t <= 0.5 ? (t * 2) : ((1 - t) * 2);
+        }
+
+        function getTimelineInputProgress() {
+            const control = document.getElementById('timeline-progress');
+            if (!control) return timelineProgress;
+            const raw = Math.max(0, Math.min(1, Number(control.value || 0) / 100));
+            if (!hasAnimationTargets()) return raw;
+            if (exportCaptureForwardOnly) return raw;
+            return toPingPongProgress(raw);
+        }
+
+        function setTimelineProgress(progress, rerender = true, animateRows = true) {
+            timelineProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+            const control = document.getElementById('timeline-progress');
+            const label = document.getElementById('timeline-progress-label');
+            if (control) control.value = String(Math.round(timelineProgress * 100));
+            if (label) label.textContent = `${Math.round(timelineProgress * 100)}%`;
+            if (rerender) renderCustomTeams({ animateRows });
+        }
+
+        function updateExportButtonLabel() {
+            const exportBtn = document.getElementById('export-btn');
+            if (!exportBtn || exportBtn.disabled) return;
+            exportBtn.textContent = hasAnimationTargets() ? 'Export MP4' : 'Export PNG';
+        }
+
+        function formatDisplayValue(value, rawFallback) {
+            if (value === null || value === undefined) return rawFallback || '';
+            if (Math.abs(value - Math.round(value)) < 0.0001) return String(Math.round(value));
+            return value.toFixed(1);
+        }
+
+        function getTimedMoveCursor(progress, moveCount) {
+            const count = Math.max(0, Number(moveCount) || 0);
+            if (count <= 0) {
+                return { stepIndex: 0, localT: 1 };
+            }
+            const MOVE_SECONDS = Math.max(0.2, Number(timelineMoveSeconds) || 1);
+            const STEP_HOLD_SECONDS = 1;
+            const FINAL_HOLD_SECONDS = 3;
+            const totalSeconds =
+                (count * MOVE_SECONDS) +
+                (Math.max(0, count - 1) * STEP_HOLD_SECONDS) +
+                FINAL_HOLD_SECONDS;
+            const elapsed = Math.max(0, Math.min(1, Number(progress) || 0)) * totalSeconds;
+
+            let cursor = 0;
+            for (let stepIndex = 0; stepIndex < count; stepIndex += 1) {
+                const moveEnd = cursor + MOVE_SECONDS;
+                if (elapsed < moveEnd) {
+                    const localT = (elapsed - cursor) / MOVE_SECONDS;
+                    return { stepIndex, localT: Math.max(0, Math.min(1, localT)) };
+                }
+                cursor = moveEnd;
+
+                const isLastStep = stepIndex === count - 1;
+                if (isLastStep) {
+                    return { stepIndex, localT: 1 };
+                }
+
+                const holdEnd = cursor + STEP_HOLD_SECONDS;
+                if (elapsed < holdEnd) {
+                    return { stepIndex, localT: 1 };
+                }
+                cursor = holdEnd;
+            }
+
+            return { stepIndex: count - 1, localT: 1 };
+        }
+
+        function getEndpointDisplayValue(teamName, startValue, endValue, progress, moveState) {
+            const startRaw = String(customStartValues[teamName] ?? '').trim();
+            const endRaw = String(customValues[teamName] ?? '').trim();
+
+            if (endValue !== null && progress >= 0.999) {
+                return endRaw || formatDisplayValue(endValue, endRaw);
+            }
+            if (moveState) {
+                const totalMoves = moveState.totalMovesByTeam.get(teamName) || 0;
+                const completedMoves = moveState.completedMovesByTeam.get(teamName) || 0;
+                if (endValue !== null && completedMoves > 0) {
+                    return endRaw || formatDisplayValue(endValue, endRaw);
+                }
+                if (endValue !== null && (totalMoves === 0 || completedMoves >= totalMoves)) {
+                    return endRaw || formatDisplayValue(endValue, endRaw);
+                }
+            }
+            if (startValue !== null) {
+                return startRaw || formatDisplayValue(startValue, startRaw);
+            }
+            if (endValue !== null) {
+                return endRaw || formatDisplayValue(endValue, endRaw);
+            }
+            return endRaw || '';
+        }
+
+        function buildTeamDisplayState(progress) {
+            const baseIndex = new Map(customOrder.map((team, idx) => [team, idx]));
+            const rows = customOrder.map((teamName) => {
+                const team = teamsData.find((t) => t.team === teamName);
+                const start = parseNumericValue(customStartValues[teamName]);
+                const end = parseNumericValue(customValues[teamName]);
+                let sortValue = null;
+                if (end !== null) {
+                    const from = start !== null ? start : end;
+                    sortValue = from + ((end - from) * progress);
+                } else {
+                    sortValue = parseNumericValue(customValues[teamName]);
+                }
+                return {
+                    teamName,
+                    team,
+                    startValue: start,
+                    endValue: end,
+                    sortValue,
+                    displayValue: ''
+                };
+            });
+
+            if (hasAnimationTargets()) {
+                const startSorted = [...rows].sort((a, b) => {
+                    const av = a.startValue !== null ? a.startValue : (a.endValue !== null ? a.endValue : -Infinity);
+                    const bv = b.startValue !== null ? b.startValue : (b.endValue !== null ? b.endValue : -Infinity);
+                    if (bv !== av) return bv - av;
+                    return (baseIndex.get(a.teamName) || 0) - (baseIndex.get(b.teamName) || 0);
+                });
+                const endSorted = [...rows].sort((a, b) => {
+                    const av = a.endValue !== null ? a.endValue : (a.startValue !== null ? a.startValue : -Infinity);
+                    const bv = b.endValue !== null ? b.endValue : (b.startValue !== null ? b.startValue : -Infinity);
+                    if (bv !== av) return bv - av;
+                    return (baseIndex.get(a.teamName) || 0) - (baseIndex.get(b.teamName) || 0);
+                });
+                const startOrder = startSorted.map((row) => row.teamName);
+                const endOrder = endSorted.map((row) => row.teamName);
+
+                // Build deterministic sequence of single-team moves from start -> end.
+                const workingOrder = [...startOrder];
+                const movePlan = [];
+                for (let targetIdx = 0; targetIdx < endOrder.length; targetIdx += 1) {
+                    const teamName = endOrder[targetIdx];
+                    let currentIdx = workingOrder.indexOf(teamName);
+                    if (currentIdx === -1 || currentIdx === targetIdx) continue;
+
+                    while (currentIdx > targetIdx) {
+                        movePlan.push({
+                            teamName,
+                            from: currentIdx,
+                            to: currentIdx - 1,
+                            before: [...workingOrder]
+                        });
+                        const temp = workingOrder[currentIdx - 1];
+                        workingOrder[currentIdx - 1] = workingOrder[currentIdx];
+                        workingOrder[currentIdx] = temp;
+                        currentIdx -= 1;
+                    }
+
+                    while (currentIdx < targetIdx) {
+                        movePlan.push({
+                            teamName,
+                            from: currentIdx,
+                            to: currentIdx + 1,
+                            before: [...workingOrder]
+                        });
+                        const temp = workingOrder[currentIdx + 1];
+                        workingOrder[currentIdx + 1] = workingOrder[currentIdx];
+                        workingOrder[currentIdx] = temp;
+                        currentIdx += 1;
+                    }
+                }
+
+                const moveCursor = getTimedMoveCursor(progress, movePlan.length);
+                const stepIndex = Math.min(Math.max(0, moveCursor.stepIndex), Math.max(0, movePlan.length - 1));
+                const localT = Math.max(0, Math.min(1, moveCursor.localT));
+                const totalMovesByTeam = new Map();
+                const completedMovesByTeam = new Map();
+                movePlan.forEach((step, idx) => {
+                    totalMovesByTeam.set(step.teamName, (totalMovesByTeam.get(step.teamName) || 0) + 1);
+                    if (idx < stepIndex || (idx === stepIndex && localT >= 0.999)) {
+                        completedMovesByTeam.set(step.teamName, (completedMovesByTeam.get(step.teamName) || 0) + 1);
+                    }
+                });
+                const moveState = { totalMovesByTeam, completedMovesByTeam };
+
+                if (!movePlan.length) {
+                    rows.forEach((row) => {
+                        row.rankProgress = startOrder.indexOf(row.teamName);
+                        row.rankDelta = 0;
+                        row.isActiveMover = false;
+                        row.displayValue = getEndpointDisplayValue(
+                            row.teamName,
+                            row.startValue,
+                            row.endValue,
+                            progress,
+                            moveState
+                        );
+                    });
+                } else if (progress >= 0.999) {
+                    rows.forEach((row) => {
+                        row.rankProgress = endOrder.indexOf(row.teamName);
+                        row.rankDelta = 0;
+                        row.isActiveMover = false;
+                        row.displayValue = getEndpointDisplayValue(
+                            row.teamName,
+                            row.startValue,
+                            row.endValue,
+                            progress,
+                            moveState
+                        );
+                    });
+                } else {
+                    const step = movePlan[stepIndex];
+                    const baseOrder = step.before;
+                    const baseRank = new Map(baseOrder.map((teamName, idx) => [teamName, idx]));
+
+                    rows.forEach((row) => {
+                        row.rankProgress = baseRank.get(row.teamName) ?? (baseIndex.get(row.teamName) || 0);
+                        row.rankDelta = 0;
+                        row.isActiveMover = false;
+                        row.displayValue = getEndpointDisplayValue(
+                            row.teamName,
+                            row.startValue,
+                            row.endValue,
+                            progress,
+                            moveState
+                        );
+                    });
+
+                    const movingRow = rows.find((row) => row.teamName === step.teamName);
+                    if (movingRow) {
+                        movingRow.rankProgress = step.from + ((step.to - step.from) * localT);
+                        movingRow.rankDelta = Math.abs(step.to - step.from);
+                        movingRow.isActiveMover = true;
+                    }
+
+                    // Shift affected neighbors to avoid background gaps while primary team moves.
+                    if (step.from < step.to) {
+                        for (let idx = step.from + 1; idx <= step.to; idx += 1) {
+                            const teamName = baseOrder[idx];
+                            const row = rows.find((r) => r.teamName === teamName);
+                            if (!row) continue;
+                            row.rankProgress = idx - localT;
+                            row.rankDelta = 1;
+                        }
+                    } else if (step.from > step.to) {
+                        for (let idx = step.to; idx < step.from; idx += 1) {
+                            const teamName = baseOrder[idx];
+                            const row = rows.find((r) => r.teamName === teamName);
+                            if (!row) continue;
+                            row.rankProgress = idx + localT;
+                            row.rankDelta = 1;
+                        }
+                    }
+                }
+            } else {
+                rows.forEach((row) => {
+                    row.rankProgress = baseIndex.get(row.teamName) || 0;
+                    row.rankDelta = 0;
+                    row.isActiveMover = false;
+                    row.displayValue = getEndpointDisplayValue(
+                        row.teamName,
+                        row.startValue,
+                        row.endValue,
+                        progress
+                    );
+                });
+            }
+
+            rows.sort((a, b) => {
+                if (a.rankProgress !== b.rankProgress) return a.rankProgress - b.rankProgress;
+                const av = a.sortValue === null ? -Infinity : a.sortValue;
+                const bv = b.sortValue === null ? -Infinity : b.sortValue;
+                if (bv !== av) return bv - av;
+                return (baseIndex.get(a.teamName) || 0) - (baseIndex.get(b.teamName) || 0);
+            });
+            return rows;
         }
 
         function normalizeDataUrlMime(url) {
@@ -144,11 +479,15 @@
             if (node.id === 'history-popover') return false;
             if (node.id === 'custom-panel') return false;
             if (node.id === 'custom-overlay') return false;
+            if (node.id === 'export-progress-overlay') return false;
+            if (node.id === 'export-top-progress') return false;
             if (node.classList.contains('controls')) return false;
             if (node.closest('.controls')) return false;
             if (node.closest('#history-controls')) return false;
             if (node.closest('#custom-panel')) return false;
             if (node.closest('#custom-overlay')) return false;
+            if (node.closest('#export-progress-overlay')) return false;
+            if (node.closest('#export-top-progress')) return false;
             return true;
         }
 
@@ -498,7 +837,11 @@
                 title: document.getElementById('custom-title').value,
                 subtitle: document.getElementById('custom-subtitle').value,
                 order: [...customOrder],
+                startValues: { ...customStartValues },
                 values: { ...customValues },
+                timelineProgress,
+                timelineDurationMs,
+                timelineMoveSeconds,
                 logoUrl: selectedLogoUrl,
                 colors: [...selectedHeaderColors]
             };
@@ -778,7 +1121,11 @@
             const stations = getStationsForDivision();
 
             customOrder = teamsData.map(t => t.team);
+            customStartValues = {};
             customValues = {};
+            timelineProgress = 1;
+            timelineDurationMs = 3000;
+            timelineMoveSeconds = 1.0;
             selectedLogoUrl = defaultStation.url;
             selectedHeaderColors = normalizeColorPair(defaultStation.color);
             document.getElementById('custom-title').value = '';
@@ -788,7 +1135,11 @@
                 document.getElementById('custom-title').value = saved.title || '';
                 document.getElementById('custom-subtitle').value = saved.subtitle || `In the ${getDivisionLabel()}`;
                 customOrder = saved.order && saved.order.length ? [...saved.order] : customOrder;
+                customStartValues = saved.startValues ? { ...saved.startValues } : {};
                 customValues = saved.values ? { ...saved.values } : {};
+                timelineProgress = typeof saved.timelineProgress === 'number' ? saved.timelineProgress : timelineProgress;
+                timelineDurationMs = typeof saved.timelineDurationMs === 'number' ? saved.timelineDurationMs : timelineDurationMs;
+                timelineMoveSeconds = typeof saved.timelineMoveSeconds === 'number' ? saved.timelineMoveSeconds : timelineMoveSeconds;
                 selectedLogoUrl = saved.logoUrl || selectedLogoUrl;
                 selectedHeaderColors = saved.colors && saved.colors.length === 2
                     ? [...saved.colors]
@@ -806,6 +1157,11 @@
                     }
                 }
             }
+            setTimelineProgress(timelineProgress, false);
+            const durationControl = document.getElementById('timeline-duration-ms');
+            if (durationControl) durationControl.value = String(timelineDurationMs);
+            const moveSecondsControl = document.getElementById('timeline-move-seconds');
+            if (moveSecondsControl) moveSecondsControl.value = String(timelineMoveSeconds);
         }
 
         function renderStationOptions() {
@@ -863,6 +1219,7 @@
             const header = document.querySelector('.header');
             if (!networkLogo || !header) return;
 
+            lastRenderedFrameSignature = '';
             previewStationConfig = station;
             const previewColors = normalizeColorPair(station.color || selectedHeaderColors.join(','));
             const readableColors = getReadableHeaderColors(previewColors);
@@ -873,6 +1230,7 @@
         }
 
         function restoreStationPreview() {
+            lastRenderedFrameSignature = '';
             previewStationConfig = null;
             renderCustomTeams();
         }
@@ -900,6 +1258,11 @@
             panel.classList.add('visible');
             overlay.classList.add('visible');
 
+            setTimelineProgress(timelineProgress, false);
+            const durationControl = document.getElementById('timeline-duration-ms');
+            if (durationControl) durationControl.value = String(timelineDurationMs);
+            const moveSecondsControl = document.getElementById('timeline-move-seconds');
+            if (moveSecondsControl) moveSecondsControl.value = String(timelineMoveSeconds);
             renderStationOptions();
             renderCustomInputs();
         }
@@ -932,19 +1295,36 @@
                 name.className = 'team-name';
                 name.textContent = teamName;
 
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = 'Value';
-                input.value = customValues[teamName] || '';
-                input.addEventListener('input', (event) => {
+                const startInput = document.createElement('input');
+                startInput.type = 'text';
+                startInput.className = 'team-value-input';
+                startInput.placeholder = 'Start';
+                startInput.value = customStartValues[teamName] || '';
+                startInput.addEventListener('input', (event) => {
+                    customStartValues[teamName] = event.target.value;
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
+                    updateExportButtonLabel();
+                    renderCustomTeams();
+                });
+
+                const endInput = document.createElement('input');
+                endInput.type = 'text';
+                endInput.className = 'team-value-input';
+                endInput.placeholder = 'End';
+                endInput.value = customValues[teamName] || '';
+                endInput.addEventListener('input', (event) => {
                     customValues[teamName] = event.target.value;
                     persistCurrentDivisionState();
                     saveSettingsToStorage();
+                    updateExportButtonLabel();
+                    renderCustomTeams();
                 });
 
                 row.appendChild(handle);
                 row.appendChild(name);
-                row.appendChild(input);
+                row.appendChild(startInput);
+                row.appendChild(endInput);
                 container.appendChild(row);
 
                 row.addEventListener('dragstart', (event) => {
@@ -974,6 +1354,7 @@
                     customDragSrc = null;
                 });
             });
+            updateExportButtonLabel();
         }
 
         function sortCustom(ascending) {
@@ -992,10 +1373,20 @@
             saveSettingsToStorage();
         }
 
-        function renderCustomTeams() {
+        function renderCustomTeams({ animateRows = true } = {}) {
             const title = document.getElementById('custom-title').value || 'NFL Meme War';
             const subtitle = document.getElementById('custom-subtitle').value || `In the ${getDivisionLabel()}`;
             const logoUrl = getSelectedLogoUrl();
+            const progress = getTimelineInputProgress();
+            const readableColors = getReadableHeaderColors(selectedHeaderColors);
+            const rows = teamsData.length ? buildTeamDisplayState(progress) : [];
+            const frameSignature = `${title}||${subtitle}||${logoUrl}||${readableColors[0]},${readableColors[1]}||${
+                rows.map((row) => `${row.teamName}:${Math.round((row.rankProgress || 0) * 1000)}:${row.displayValue || ''}`).join('|')
+            }`;
+            if (frameSignature === lastRenderedFrameSignature) {
+                return;
+            }
+            lastRenderedFrameSignature = frameSignature;
 
             document.getElementById('page-title').textContent = title;
             document.getElementById('page-subtitle').textContent = subtitle;
@@ -1003,46 +1394,82 @@
             networkLogo.src = withLocalNoCache(logoUrl);
             networkLogo.alt = `${getDivisionLabel()} Network Logo`;
             refreshLogoContrastBackground(logoUrl, selectedHeaderColors[0]);
-            const readableColors = getReadableHeaderColors(selectedHeaderColors);
             document.querySelector('.header').style.background =
                 `linear-gradient(135deg, ${readableColors[0]} 0%, ${readableColors[1]} 100%)`;
 
             const container = document.getElementById('teams-container');
-            container.innerHTML = '';
+            container.style.position = 'relative';
+            container.style.display = 'block';
 
             if (!teamsData.length) {
                 container.innerHTML = '<div style="color: white; text-align: center; padding: 50px;">No team data found for this division</div>';
                 return;
             }
 
-            customOrder.forEach((teamName, index) => {
-                const team = teamsData.find(t => t.team === teamName);
+            const existingRows = new Map();
+            container.querySelectorAll('.team-row').forEach((row) => {
+                if (row.dataset.team) existingRows.set(row.dataset.team, row);
+            });
+            const containerHeight = Math.max(1, container.clientHeight || container.getBoundingClientRect().height || 1200);
+            const rowHeight = containerHeight / Math.max(1, rows.length);
+            const keepTeams = new Set(rows.map((r) => r.teamName));
+
+            rows.forEach((rowData, index) => {
+                const team = rowData.team;
                 if (!team) return;
 
-                const row = document.createElement('div');
-                row.className = 'team-row';
-                row.style.backgroundColor = team.color;
-                row.style.zIndex = customOrder.length - index;
+                let row = existingRows.get(rowData.teamName);
+                let logo;
+                let points;
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'team-row';
+                    row.dataset.team = rowData.teamName;
 
-                const logo = document.createElement('img');
-                logo.crossOrigin = 'anonymous';
+                    logo = document.createElement('img');
+                    logo.crossOrigin = 'anonymous';
+                    logo.className = 'team-logo';
+                    row.appendChild(logo);
+
+                    points = document.createElement('div');
+                    points.className = 'points';
+                    row.appendChild(points);
+                } else {
+                    row.dataset.team = rowData.teamName;
+                    logo = row.querySelector('.team-logo');
+                    points = row.querySelector('.points');
+                }
+
+                row.style.backgroundColor = team.color;
+                row.style.position = 'absolute';
+                row.style.left = '0';
+                row.style.right = '0';
+                row.style.width = '100%';
+                row.style.height = `${rowHeight}px`;
+                row.style.flex = 'none';
+                const isMovingRank = !!rowData.isActiveMover;
+                const movingBoost = isMovingRank ? 1000000 : 0;
+                const rankLayer = (rows.length * 1000) - Math.round((rowData.rankProgress || index) * 1000);
+                row.style.zIndex = String(movingBoost + rankLayer);
+                row.style.transition = animateRows ? 'top 220ms linear' : 'none';
+                row.style.top = `${(rowData.rankProgress || index) * rowHeight}px`;
                 logo.src = withLocalNoCache(team.logo);
                 logo.alt = `${team.team} Logo`;
-                logo.className = 'team-logo';
-
-                const points = document.createElement('div');
-                points.className = 'points';
-                const val = customValues[teamName] || '';
+                points.style.fontSize = '';
+                const val = rowData.displayValue || '';
                 if (val.length > 10) {
                     points.style.fontSize = '60px';
                 } else if (val.length > 6) {
                     points.style.fontSize = '80px';
                 }
                 points.textContent = val;
-
-                row.appendChild(logo);
-                row.appendChild(points);
                 container.appendChild(row);
+            });
+
+            container.querySelectorAll('.team-row').forEach((row) => {
+                if (!keepTeams.has(row.dataset.team)) {
+                    row.remove();
+                }
             });
         }
 
@@ -1072,11 +1499,384 @@
                 renderStationOptions();
                 renderCustomInputs();
                 renderCustomTeams();
+                updateExportButtonLabel();
             });
+        }
+
+        function lockExportUI(exportModeLabel) {
+            const exportBtn = document.getElementById('export-btn');
+            const controls = document.querySelector('.controls');
+            const historyControls = document.getElementById('history-controls');
+            const historyPopover = document.getElementById('history-popover');
+            const containerElement = document.querySelector('.container');
+            if (!controls || !containerElement || !exportBtn) {
+                throw new Error('Missing export UI refs');
+            }
+
+            const prevControlsDisplay = controls.style.display;
+            const prevHistoryControlsDisplay = historyControls ? historyControls.style.display : '';
+            const wasHistoryPopoverVisible = !!historyPopover && historyPopover.classList.contains('visible');
+            const prevContainerPosition = containerElement.style.position;
+
+            controls.style.display = 'none';
+            if (historyControls) historyControls.style.display = 'none';
+            if (historyPopover) historyPopover.classList.remove('visible');
+
+            containerElement.style.position = 'relative';
+            const exportUrlBadge = document.createElement('div');
+            exportUrlBadge.id = 'export-url-badge';
+            exportUrlBadge.textContent = getExportDisplayUrl();
+            exportUrlBadge.style.position = 'absolute';
+            exportUrlBadge.style.left = '50%';
+            exportUrlBadge.style.bottom = '18px';
+            exportUrlBadge.style.transform = 'translateX(-50%)';
+            exportUrlBadge.style.fontFamily = 'Arial Black, Arial, sans-serif';
+            exportUrlBadge.style.fontSize = '24px';
+            exportUrlBadge.style.fontWeight = '700';
+            exportUrlBadge.style.letterSpacing = '0.5px';
+            exportUrlBadge.style.color = 'rgba(255,255,255,0.75)';
+            exportUrlBadge.style.textShadow = '0 2px 8px rgba(0,0,0,0.55)';
+            exportUrlBadge.style.pointerEvents = 'none';
+            exportUrlBadge.style.zIndex = '9999';
+            containerElement.appendChild(exportUrlBadge);
+
+            const exportProgressOverlay = document.createElement('div');
+            exportProgressOverlay.id = 'export-progress-overlay';
+            exportProgressOverlay.style.position = 'absolute';
+            exportProgressOverlay.style.left = '50%';
+            exportProgressOverlay.style.bottom = '64px';
+            exportProgressOverlay.style.transform = 'translateX(-50%)';
+            exportProgressOverlay.style.width = '420px';
+            exportProgressOverlay.style.maxWidth = '80%';
+            exportProgressOverlay.style.display = 'none';
+            exportProgressOverlay.style.padding = '10px 12px';
+            exportProgressOverlay.style.borderRadius = '10px';
+            exportProgressOverlay.style.background = 'rgba(0,0,0,0.55)';
+            exportProgressOverlay.style.backdropFilter = 'blur(3px)';
+            exportProgressOverlay.style.pointerEvents = 'none';
+            exportProgressOverlay.style.zIndex = '10000';
+
+            const exportProgressLabel = document.createElement('div');
+            exportProgressLabel.textContent = 'Encoding 0%';
+            exportProgressLabel.style.color = 'rgba(255,255,255,0.95)';
+            exportProgressLabel.style.fontFamily = 'Arial Black, Arial, sans-serif';
+            exportProgressLabel.style.fontSize = '18px';
+            exportProgressLabel.style.textAlign = 'center';
+            exportProgressLabel.style.marginBottom = '8px';
+
+            const exportProgressTrack = document.createElement('div');
+            exportProgressTrack.style.height = '10px';
+            exportProgressTrack.style.width = '100%';
+            exportProgressTrack.style.background = 'rgba(255,255,255,0.2)';
+            exportProgressTrack.style.borderRadius = '999px';
+            exportProgressTrack.style.overflow = 'hidden';
+
+            const exportProgressFill = document.createElement('div');
+            exportProgressFill.style.height = '100%';
+            exportProgressFill.style.width = '0%';
+            exportProgressFill.style.borderRadius = '999px';
+            exportProgressFill.style.background = 'linear-gradient(90deg, #38bdf8 0%, #60a5fa 100%)';
+            exportProgressTrack.appendChild(exportProgressFill);
+
+            exportProgressOverlay.appendChild(exportProgressLabel);
+            exportProgressOverlay.appendChild(exportProgressTrack);
+            containerElement.appendChild(exportProgressOverlay);
+
+            const exportTopProgress = document.createElement('div');
+            exportTopProgress.id = 'export-top-progress';
+            exportTopProgress.style.position = 'absolute';
+            exportTopProgress.style.top = '14px';
+            exportTopProgress.style.left = '50%';
+            exportTopProgress.style.transform = 'translateX(-50%)';
+            exportTopProgress.style.padding = '8px 12px';
+            exportTopProgress.style.borderRadius = '9px';
+            exportTopProgress.style.background = 'rgba(0,0,0,0.48)';
+            exportTopProgress.style.color = 'rgba(255,255,255,0.96)';
+            exportTopProgress.style.fontFamily = 'Arial Black, Arial, sans-serif';
+            exportTopProgress.style.fontSize = '18px';
+            exportTopProgress.style.letterSpacing = '0.4px';
+            exportTopProgress.style.textAlign = 'center';
+            exportTopProgress.style.pointerEvents = 'none';
+            exportTopProgress.style.zIndex = '10001';
+            exportTopProgress.style.display = 'none';
+            exportTopProgress.textContent = 'Preparing 0%';
+            containerElement.appendChild(exportTopProgress);
+
+            exportBtn.textContent = exportModeLabel;
+            exportBtn.disabled = true;
+
+            let restored = false;
+            const setEncodingProgress = (percent = 0, stageLabel = 'Encoding') => {
+                const p = Math.max(0, Math.min(100, Number(percent) || 0));
+                exportProgressOverlay.style.display = 'block';
+                exportProgressLabel.textContent = `${stageLabel} ${p}%`;
+                exportProgressFill.style.width = `${p}%`;
+                exportTopProgress.style.display = 'block';
+                exportTopProgress.textContent = `${stageLabel} ${p}%`;
+            };
+            const hideEncodingProgress = () => {
+                exportProgressOverlay.style.display = 'none';
+                exportTopProgress.style.display = 'none';
+            };
+
+            const restore = () => {
+                if (restored) return;
+                restored = true;
+                if (exportUrlBadge && exportUrlBadge.parentNode) {
+                    exportUrlBadge.parentNode.removeChild(exportUrlBadge);
+                }
+                if (exportProgressOverlay && exportProgressOverlay.parentNode) {
+                    exportProgressOverlay.parentNode.removeChild(exportProgressOverlay);
+                }
+                if (exportTopProgress && exportTopProgress.parentNode) {
+                    exportTopProgress.parentNode.removeChild(exportTopProgress);
+                }
+                containerElement.style.position = prevContainerPosition;
+                controls.style.display = prevControlsDisplay || 'flex';
+                if (historyControls) historyControls.style.display = prevHistoryControlsDisplay;
+                if (historyPopover && wasHistoryPopoverVisible) historyPopover.classList.add('visible');
+                exportBtn.disabled = false;
+                updateExportButtonLabel();
+            };
+
+            return { containerElement, restore, setEncodingProgress, hideEncodingProgress };
+        }
+
+        function downloadDataUrl(filename, dataUrl) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = dataUrl;
+            link.click();
+        }
+
+        function buildExportFilename(ext) {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(-2);
+            return `${selectedConference}${selectedDivision}Meme-${month}-${day}-${year}.${ext}`;
+        }
+
+        function setExportProgressTitle(percentText, suffix = 'Exporting MP4') {
+            document.title = `NFL Meme War • ${suffix} ${percentText}`;
+        }
+
+        function restoreTitleAfterExport() {
+            document.title = 'NFL Meme War';
+        }
+
+        function describeMp4Error(error, stage) {
+            if (!error) return { stage, summary: 'Unknown MP4 error' };
+            if (error instanceof Error) {
+                return {
+                    stage,
+                    summary: error.message || 'Error',
+                    name: error.name || 'Error',
+                    stack: error.stack || null
+                };
+            }
+            if (error instanceof Event) {
+                return {
+                    stage,
+                    summary: `Event error: ${error.type || 'unknown'}`,
+                    isTrusted: !!error.isTrusted
+                };
+            }
+            if (typeof error === 'object') {
+                return { stage, summary: 'Object error', ...error };
+            }
+            return { stage, summary: String(error) };
+        }
+
+        function createFfmpegWorker() {
+            return new Worker(new URL('./ffmpeg-worker.js', import.meta.url), { type: 'module' });
+        }
+
+        async function exportToMP4() {
+            console.log('[mp4] clicked');
+            if (activeProcessingSession) {
+                console.warn('[mp4] ignored: another processing task is active', { kind: activeProcessingSession.kind });
+                return;
+            }
+            const ui = lockExportUI('Exporting MP4...');
+            const previousProgress = timelineProgress;
+            const session = beginProcessingSession('mp4', () => {
+                ui.restore();
+                setTimelineProgress(previousProgress, true);
+                restoreTitleAfterExport();
+            });
+            if (!session) {
+                ui.restore();
+                return;
+            }
+
+            let mp4Stage = 'init';
+            try {
+                mp4Stage = 'preflight';
+                normalizeExportImageSources(ui.containerElement);
+                await preflightExportImages(ui.containerElement);
+                if (session.cancelled) return;
+
+                const fps = 30;
+                const durationSec = Math.max(0.5, Number(timelineDurationMs || 3000) / 1000);
+                const totalFrameCount = Math.max(2, Math.round(durationSec * fps));
+                const frameCount = Math.max(2, Math.ceil(totalFrameCount / 2));
+                const worker = createFfmpegWorker();
+                let lastLoggedPercent = -1;
+                console.log('[mp4] worker created', { fps, frameCount, totalFrameCount, durationSec });
+
+                let encodeResolve = null;
+                let encodeReject = null;
+                const waitForReady = new Promise((resolve, reject) => {
+                    const READY_TIMEOUT_MS = 180000;
+                    const timeout = setTimeout(() => {
+                        reject(new Error(`ffmpeg worker ready timeout after ${READY_TIMEOUT_MS}ms`));
+                    }, READY_TIMEOUT_MS);
+                    worker.onmessage = (event) => {
+                        const data = event.data || {};
+                        if (data.type === 'status') {
+                            console.log('[mp4] worker status', data.stage);
+                            return;
+                        }
+                        if (data.type === 'ready') {
+                            clearTimeout(timeout);
+                            console.log('[mp4] ffmpeg worker ready');
+                            resolve();
+                            return;
+                        }
+                        if (data.type === 'error') {
+                            clearTimeout(timeout);
+                            reject(new Error(data.message || 'ffmpeg worker init error'));
+                        }
+                    };
+                    worker.onerror = (err) => {
+                        clearTimeout(timeout);
+                        reject(err instanceof Error ? err : new Error('ffmpeg worker runtime error'));
+                    };
+                });
+
+                const encodedPromise = new Promise((resolve, reject) => {
+                    encodeResolve = resolve;
+                    encodeReject = reject;
+                });
+
+                worker.postMessage({ type: 'init', fps });
+                setExportProgressTitle('0%', 'Preparing');
+                ui.setEncodingProgress(0, 'Preparing');
+                mp4Stage = 'worker-ready';
+                await waitForReady;
+                worker.onmessage = (event) => {
+                    const data = event.data || {};
+                    if (data.type === 'status') {
+                        console.log('[mp4] worker status', data.stage);
+                        return;
+                    }
+                    if (data.type === 'progress') {
+                        const p = Math.max(0, Math.min(100, Math.round((Number(data.progress) || 0) * 100)));
+                        if (p !== lastLoggedPercent) {
+                            lastLoggedPercent = p;
+                            console.log(`[mp4] encode progress ${p}%`);
+                        }
+                        setExportProgressTitle(`${p}%`, 'Encoding');
+                        ui.setEncodingProgress(p, 'Encoding');
+                        return;
+                    }
+                    if (data.type === 'done') {
+                        console.log('[mp4] encode done');
+                        if (encodeResolve) encodeResolve(data.buffer);
+                        return;
+                    }
+                    if (data.type === 'error') {
+                        console.error('[mp4] worker error', data);
+                        if (encodeReject) encodeReject(new Error(data.message || 'ffmpeg worker error'));
+                    }
+                };
+                worker.onerror = (err) => {
+                    console.error('[mp4] worker onerror', err);
+                    if (encodeReject) encodeReject(err instanceof Error ? err : new Error('ffmpeg worker runtime error'));
+                };
+
+                exportCaptureForwardOnly = true;
+                for (let i = 0; i < frameCount; i += 1) {
+                    if (session.cancelled) break;
+                    mp4Stage = `capture-frame-${i + 1}`;
+                    const progress = frameCount <= 1 ? 1 : i / (frameCount - 1);
+                    const capturePercent = Math.round(((i + 1) / frameCount) * 100);
+                    if (capturePercent !== lastLoggedPercent) {
+                        lastLoggedPercent = capturePercent;
+                        console.log(`[mp4] frame capture ${capturePercent}% (${i + 1}/${frameCount})`);
+                    }
+                    setExportProgressTitle(`${capturePercent}%`, 'Capturing');
+                    ui.setEncodingProgress(capturePercent, 'Capturing');
+                    setTimelineProgress(progress, true, false);
+                    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+                    const blob = await window.domtoimage.toBlob(ui.containerElement, {
+                        width: 1080,
+                        height: 1920,
+                        quality: 1.0,
+                        cacheBust: true,
+                        imagePlaceholder: EXPORT_IMAGE_PLACEHOLDER,
+                        filter: shouldIncludeNodeForExport,
+                        style: {
+                            margin: '0',
+                            padding: '0'
+                        }
+                    });
+                    const buffer = await blob.arrayBuffer();
+                    worker.postMessage({ type: 'frame', index: i, buffer }, [buffer]);
+                }
+                exportCaptureForwardOnly = false;
+
+                if (!session.cancelled) {
+                    setExportProgressTitle('0%', 'Encoding');
+                    ui.setEncodingProgress(0, 'Encoding');
+                    console.log('[mp4] starting encode');
+                    mp4Stage = 'encode';
+                    worker.postMessage({ type: 'encode', fps });
+                    const outBuffer = await Promise.race([
+                        encodedPromise,
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('encode timeout')), 120000))
+                    ]);
+                    mp4Stage = 'finalize-download';
+                    const blob = new Blob([outBuffer], { type: 'video/mp4' });
+                    const dataUrl = URL.createObjectURL(blob);
+                    const filename = buildExportFilename('mp4');
+                    downloadDataUrl(filename, dataUrl);
+                    console.log('[mp4] download triggered', { filename });
+                    ui.hideEncodingProgress();
+                    setTimeout(() => URL.revokeObjectURL(dataUrl), 2000);
+                }
+                worker.terminate();
+            } catch (error) {
+                if (!session.cancelled) {
+                    const details = describeMp4Error(error, mp4Stage || 'unknown');
+                    window.lastMp4Error = details;
+                    console.error('[mp4] failed', details);
+                    alert('Error exporting MP4. Please try again.');
+                }
+            } finally {
+                exportCaptureForwardOnly = false;
+                setTimelineProgress(previousProgress, true, false);
+                ui.restore();
+                endProcessingSession(session);
+                restoreTitleAfterExport();
+            }
+        }
+
+        function handleExportClick() {
+            if (hasAnimationTargets()) {
+                exportToMP4();
+                return;
+            }
+            exportToPNG();
         }
 
         function exportToPNG() {
             console.log('[export] clicked');
+            if (activeProcessingSession) {
+                console.warn('[export] ignored: another processing task is active', { kind: activeProcessingSession.kind });
+                return;
+            }
             const exportBtn = document.getElementById('export-btn');
             const controls = document.querySelector('.controls');
             const historyControls = document.getElementById('history-controls');
@@ -1103,6 +1903,25 @@
             const wasHistoryPopoverVisible = !!historyPopover && historyPopover.classList.contains('visible');
             const prevContainerPosition = containerElement.style.position;
             let exportUrlBadge = null;
+            let uiRestored = false;
+            const restoreUI = () => {
+                if (uiRestored) return;
+                uiRestored = true;
+                if (exportUrlBadge && exportUrlBadge.parentNode) {
+                    exportUrlBadge.parentNode.removeChild(exportUrlBadge);
+                }
+                containerElement.style.position = prevContainerPosition;
+                controls.style.display = prevControlsDisplay || 'flex';
+                if (historyControls) {
+                    historyControls.style.display = prevHistoryControlsDisplay;
+                }
+                if (historyPopover && wasHistoryPopoverVisible) {
+                    historyPopover.classList.add('visible');
+                }
+                exportBtn.disabled = false;
+                updateExportButtonLabel();
+            };
+
             controls.style.display = 'none';
             if (historyControls) {
                 historyControls.style.display = 'none';
@@ -1132,16 +1951,31 @@
             exportBtn.disabled = true;
             console.log('[export] ui locked');
 
+            const session = beginProcessingSession('export', () => {
+                restoreUI();
+            });
+            if (!session) {
+                restoreUI();
+                return;
+            }
+
             {
                 setTimeout(() => {
+                    if (session.cancelled) {
+                        console.log('[export] aborted before preprocessing');
+                        endProcessingSession(session);
+                        return;
+                    }
                     console.log('[export] normalize sources start');
                     normalizeExportImageSources(containerElement);
                     console.log('[export] normalize sources done');
                     preflightExportImages(containerElement)
                     .then(() => {
+                    if (session.cancelled) return null;
                     console.log('[export] loading dom-to-image');
                     getDomToImage()
                     .then((domtoimage) => {
+                        if (session.cancelled) return null;
                         console.log('[export] dom-to-image loaded', {
                             hasToPng: !!(domtoimage && domtoimage.toPng)
                         });
@@ -1160,6 +1994,10 @@
                         });
                     })
                     .then((dataUrl) => {
+                        if (session.cancelled || !dataUrl) {
+                            console.log('[export] skipped download because export was cancelled');
+                            return;
+                        }
                         console.log('[export] toPng resolved', {
                             dataUrlPrefix: typeof dataUrl === 'string' ? dataUrl.slice(0, 30) : typeof dataUrl
                         });
@@ -1176,6 +2014,10 @@
                         console.log('[export] download triggered', { filename });
                     })
                     .catch((error) => {
+                        if (session.cancelled) {
+                            console.log('[export] caught error after cancellation; ignoring', error);
+                            return;
+                        }
                         const details = describeExportError(error);
                         window.lastExportError = details;
                         console.error('[export] failed', details);
@@ -1183,33 +2025,20 @@
                     })
                     .finally(() => {
                         console.log('[export] finally restore ui');
-                        if (exportUrlBadge && exportUrlBadge.parentNode) {
-                            exportUrlBadge.parentNode.removeChild(exportUrlBadge);
-                        }
-                        containerElement.style.position = prevContainerPosition;
-                        controls.style.display = prevControlsDisplay || 'flex';
-                        if (historyControls) {
-                            historyControls.style.display = prevHistoryControlsDisplay;
-                        }
-                        if (historyPopover && wasHistoryPopoverVisible) {
-                            historyPopover.classList.add('visible');
-                        }
-                        exportBtn.textContent = 'Export PNG';
-                        exportBtn.disabled = false;
+                        restoreUI();
+                        endProcessingSession(session);
                         console.log('[export] done');
                     });
                     })
                     .catch((error) => {
+                        if (session.cancelled) {
+                            console.log('[export] preflight stopped after cancellation');
+                            endProcessingSession(session);
+                            return;
+                        }
                         console.error('[export] preflight failed', error);
-                        controls.style.display = prevControlsDisplay || 'flex';
-                        if (historyControls) {
-                            historyControls.style.display = prevHistoryControlsDisplay;
-                        }
-                        if (historyPopover && wasHistoryPopoverVisible) {
-                            historyPopover.classList.add('visible');
-                        }
-                        exportBtn.textContent = 'Export PNG';
-                        exportBtn.disabled = false;
+                        restoreUI();
+                        endProcessingSession(session);
                     });
                 }, 300);
             }
@@ -1265,10 +2094,26 @@
                 });
                 document.getElementById('sort-asc-btn').addEventListener('click', () => sortCustom(true));
                 document.getElementById('sort-desc-btn').addEventListener('click', () => sortCustom(false));
+                document.getElementById('timeline-progress').addEventListener('input', (event) => {
+                    setTimelineProgress(Number(event.target.value) / 100, true, false);
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
+                });
+                document.getElementById('timeline-duration-ms').addEventListener('input', (event) => {
+                    timelineDurationMs = Math.max(500, Number(event.target.value) || 3000);
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
+                });
+                document.getElementById('timeline-move-seconds').addEventListener('input', (event) => {
+                    timelineMoveSeconds = Math.max(0.2, Math.min(5, Number(event.target.value) || 1));
+                    persistCurrentDivisionState();
+                    saveSettingsToStorage();
+                    renderCustomTeams({ animateRows: false });
+                });
                 document.getElementById('custom-apply-btn').addEventListener('click', applyCustom);
                 document.getElementById('custom-overlay').addEventListener('click', closeCustomPanel);
                 document.getElementById('edit-btn').addEventListener('click', openCustomPanel);
-                document.getElementById('export-btn').addEventListener('click', exportToPNG);
+                document.getElementById('export-btn').addEventListener('click', handleExportClick);
                 document.getElementById('history-toggle-btn').addEventListener('click', (event) => {
                     event.stopPropagation();
                     const popover = document.getElementById('history-popover');
@@ -1284,7 +2129,10 @@
                     document.getElementById('history-popover').classList.remove('visible');
                 });
 
-                loadDivisionData().then(() => saveSettingsToStorage());
+                loadDivisionData().then(() => {
+                    saveSettingsToStorage();
+                    updateExportButtonLabel();
+                });
             })
             .catch(error => {
                 console.error('Error loading data:', error);

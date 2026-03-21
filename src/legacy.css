@@ -95,7 +95,7 @@
             border: 2px solid #3b82f6;
             border-radius: 10px;
             padding: 25px;
-            z-index: 1000;
+            z-index: 2147483647;
             min-width: 400px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.8);
         }
@@ -112,7 +112,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.6);
-            z-index: 999;
+            z-index: 2147483646;
         }
 
         .custom-overlay.visible {
@@ -225,6 +225,12 @@
             font-family: 'Arial Black', 'Arial Bold', sans-serif;
         }
 
+        .custom-team-row .team-value-input {
+            flex: 0 0 110px;
+            width: 110px;
+            text-align: center;
+        }
+
         .custom-sort-row {
             display: flex;
             gap: 8px;
@@ -249,6 +255,49 @@
         .custom-sort-row button:hover {
             background: #3b82f6;
             color: white;
+        }
+
+        .timeline-controls {
+            margin-top: 12px;
+            margin-bottom: 8px;
+            padding: 10px;
+            border: 1px solid #35538d;
+            border-radius: 8px;
+            background: rgba(12, 20, 40, 0.45);
+        }
+
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .timeline-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-row label {
+            width: 120px;
+            color: #dbeafe;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+
+        .timeline-row input[type="range"] {
+            flex: 1;
+        }
+
+        .timeline-row input[type="number"] {
+            width: 110px;
+            padding: 7px 8px;
+            font-size: 13px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: white;
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
         }
 
         .custom-apply-btn {
@@ -533,6 +582,7 @@
             flex: 4;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         .team-row {
@@ -540,15 +590,10 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 40px;
-            border-top: 3px solid white;
-            border-bottom: 3px solid white;
             position: relative;
+            z-index: 2;
             flex: 1 1 0;
             min-height: 0;
-        }
-
-        .team-row:not(:last-child) {
-            border-bottom: none;
         }
 
         .team-logo {
