@@ -12,6 +12,7 @@ const VIDEO_BG_MIN_FPS = 3;
 const VIDEO_BG_MAX_FPS = 8;
 const VIDEO_BG_MODEL = 'isnet_quint8';
 const VIDEO_BG_ENCODE_CHUNK_SIZE = 30;
+const REMOVEBG_PROXY_TO_WORKER = true;
 
 const DEFAULT_SEGMENTS = [
   { name: 'patriot', start: '00:00:00', end: '00:00:23' },
@@ -36,6 +37,10 @@ const state = {
   videoUrl: DEFAULT_VIDEO_URL,
   videoBinary: null,
   videoObjectUrl: '',
+  previousVideoUrl: '',
+  previousVideoBinary: null,
+  previousVideoObjectUrl: '',
+  videoOptions: [],
   videoMeta: { width: 0, height: 0 },
   transitionMode: 'cut',
   crossfadeSec: 0.2,
@@ -83,6 +88,98 @@ function getSegmentMediaKind(seg) {
   if (mime.startsWith('image/')) return 'image';
   if (seg?.imageUrl) return guessMediaKindFromUrl(seg.imageUrl);
   return 'image';
+}
+
+function getVideoFrameSize() {
+  const video = document.getElementById('retard-video');
+  const vw = Number((video && video.videoWidth) || state.videoMeta.width || 1920);
+  const vh = Number((video && video.videoHeight) || state.videoMeta.height || 1080);
+  return {
+    width: Math.max(1, vw),
+    height: Math.max(1, vh)
+  };
+}
+
+async function getImageDimensionsFromBlob(blob) {
+  if (!(blob instanceof Blob)) return null;
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(blob);
+    try {
+      return { width: bitmap.width, height: bitmap.height };
+    } finally {
+      bitmap.close();
+    }
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Image load failed'));
+      el.src = objectUrl;
+    });
+    return {
+      width: Number(img.naturalWidth) || 0,
+      height: Number(img.naturalHeight) || 0
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function getImageDimensionsFromUrl(url) {
+  if (!url) return null;
+  const img = await new Promise((resolve, reject) => {
+    const el = new Image();
+    el.crossOrigin = 'anonymous';
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('Image URL load failed'));
+    el.src = url;
+  });
+  return {
+    width: Number(img.naturalWidth) || 0,
+    height: Number(img.naturalHeight) || 0
+  };
+}
+
+function applyAutoPlacementFromDimensions(seg, dims) {
+  if (!seg || !dims) return false;
+  const iw = Math.max(1, Number(dims.width) || 0);
+  const ih = Math.max(1, Number(dims.height) || 0);
+  if (!iw || !ih) return false;
+
+  const frame = getVideoFrameSize();
+  const fw = frame.width;
+  const fh = frame.height;
+  const scale = Math.min(1, fw / iw, fh / ih);
+  const widthPct = Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, ((iw * scale) / fw) * 100));
+  const heightPct = Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, ((ih * scale) / fh) * 100));
+  const safeHalfH = heightPct / 2;
+  const yBottom = 100 - safeHalfH;
+
+  seg.width = Number(widthPct.toFixed(2));
+  seg.height = Number(heightPct.toFixed(2));
+  seg.x = 50;
+  seg.y = Number(Math.max(safeHalfH, Math.min(90, yBottom)).toFixed(2));
+  return true;
+}
+
+async function maybeAutoPlaceNewImageOverlay(seg, wasEmpty) {
+  if (!wasEmpty) return false;
+  if (getSegmentMediaKind(seg) !== 'image') return false;
+  try {
+    if (seg.imageBinary?.blob) {
+      const dims = await getImageDimensionsFromBlob(seg.imageBinary.blob);
+      return applyAutoPlacementFromDimensions(seg, dims);
+    }
+    if (seg.imageUrl) {
+      const dims = await getImageDimensionsFromUrl(seg.imageUrl);
+      return applyAutoPlacementFromDimensions(seg, dims);
+    }
+  } catch (_) {
+    // Ignore auto-placement failures and keep existing values.
+  }
+  return false;
 }
 
 function assignImageBlobToSegment(seg, blob, name = 'pasted.png', type = 'image/png') {
@@ -274,7 +371,8 @@ async function removeBackgroundFromVideoOverlay(seg, statusPrefix = '') {
       try {
         out = await removeBackground(frameBlob, {
           model: VIDEO_BG_MODEL,
-          device: inferenceDevice
+          device: inferenceDevice,
+          proxyToWorker: REMOVEBG_PROXY_TO_WORKER
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -284,7 +382,8 @@ async function removeBackgroundFromVideoOverlay(seg, statusPrefix = '') {
           setStatus(`GPU failed, falling back to CPU (${msg})`);
           out = await removeBackground(frameBlob, {
             model: VIDEO_BG_MODEL,
-            device: inferenceDevice
+            device: inferenceDevice,
+            proxyToWorker: REMOVEBG_PROXY_TO_WORKER
           });
         } else {
           throw new Error(`[remove-frame ${i + 1}/${frameCount}] ${msg}`);
@@ -377,6 +476,223 @@ function setVideoSourceFromBinary(blob, name = 'input.mp4', type = 'video/mp4') 
   state.videoObjectUrl = URL.createObjectURL(blob);
 }
 
+function hasCurrentVideoSource() {
+  return !!(state.videoBinary?.blob || state.videoUrl);
+}
+
+function hasPreviousVideoSource() {
+  return !!(state.previousVideoBinary?.blob || state.previousVideoUrl);
+}
+
+function stashCurrentVideoAsPrevious() {
+  if (!hasCurrentVideoSource()) return;
+  revokeObjectUrl(state.previousVideoObjectUrl);
+  state.previousVideoBinary = state.videoBinary;
+  state.previousVideoUrl = state.videoUrl || '';
+  state.previousVideoObjectUrl = state.videoObjectUrl || '';
+  state.videoBinary = null;
+  state.videoUrl = '';
+  state.videoObjectUrl = '';
+}
+
+function applyCurrentVideoToElement(video) {
+  if (!(video instanceof HTMLVideoElement)) return;
+  if (state.videoBinary?.blob && state.videoObjectUrl) {
+    video.src = state.videoObjectUrl;
+    return;
+  }
+  if (state.videoUrl) {
+    video.src = state.videoUrl;
+    return;
+  }
+  video.removeAttribute('src');
+}
+
+function serializeVideoSource(binary, url) {
+  return binary
+    ? {
+        kind: 'binary',
+        name: binary.name || 'input.mp4',
+        type: binary.type || 'video/mp4',
+        blob: binary.blob
+      }
+    : {
+        kind: 'url',
+        url: url || ''
+      };
+}
+
+function serializeSegments(segments) {
+  return segments.map((seg) => ({
+    id: seg.id,
+    name: seg.name,
+    start: seg.start,
+    end: seg.end,
+    x: seg.x,
+    y: seg.y,
+    width: seg.width,
+    height: seg.height,
+    imageSource: seg.imageBinary
+      ? {
+          kind: 'binary',
+          name: seg.imageBinary.name || 'overlay.png',
+          type: seg.imageBinary.type || 'image/png',
+          blob: seg.imageBinary.blob
+            ? new Blob([seg.imageBinary.blob], { type: seg.imageBinary.type || 'application/octet-stream' })
+            : null
+        }
+      : {
+          kind: 'url',
+          url: seg.imageUrl || ''
+        }
+  }));
+}
+
+function deserializeSegments(serialized) {
+  if (!Array.isArray(serialized)) return [];
+  return serialized.map((src, i) => {
+    const imageSource = src.imageSource || { kind: 'url', url: src.imageUrl || '' };
+    return {
+      id: `seg_${segmentCounter + i}`,
+      name: String(src.name || ''),
+      start: String(src.start || EMPTY_TIMECODE),
+      end: String(src.end || EMPTY_TIMECODE),
+      x: Math.max(0, Math.min(100, Number(src.x) || 50)),
+      y: Math.max(0, Math.min(100, Number(src.y) || 90)),
+      width: Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, Number(src.width) || 100)),
+      height: Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, Number(src.height) || 100)),
+      imageBinary: imageSource.kind === 'binary' && imageSource.blob
+        ? {
+            blob: new Blob([imageSource.blob], { type: imageSource.type || 'application/octet-stream' }),
+            name: imageSource.name || 'overlay.png',
+            type: imageSource.type || 'image/png'
+          }
+        : null,
+      imageObjectUrl: '',
+      imageUrl: imageSource.kind === 'url' ? String(imageSource.url || '') : ''
+    };
+  });
+}
+
+function restoreVideoSource(serialized, target = 'current') {
+  if (target === 'current') {
+    revokeObjectUrl(state.videoObjectUrl);
+  } else {
+    revokeObjectUrl(state.previousVideoObjectUrl);
+  }
+  const isBinary = serialized?.kind === 'binary' && serialized?.blob;
+  if (target === 'current') {
+    if (isBinary) {
+      state.videoBinary = {
+        blob: serialized.blob,
+        name: serialized.name || 'input.mp4',
+        type: serialized.type || 'video/mp4'
+      };
+      state.videoUrl = '';
+      state.videoObjectUrl = URL.createObjectURL(serialized.blob);
+    } else {
+      state.videoBinary = null;
+      state.videoUrl = serialized?.url || '';
+      state.videoObjectUrl = '';
+    }
+    return;
+  }
+  if (isBinary) {
+    state.previousVideoBinary = {
+      blob: serialized.blob,
+      name: serialized.name || 'input.mp4',
+      type: serialized.type || 'video/mp4'
+    };
+    state.previousVideoUrl = '';
+    state.previousVideoObjectUrl = URL.createObjectURL(serialized.blob);
+  } else {
+    state.previousVideoBinary = null;
+    state.previousVideoUrl = serialized?.url || '';
+    state.previousVideoObjectUrl = '';
+  }
+}
+
+function renderVideoOptionsSelect() {
+  const select = document.getElementById('retard-video-options-select');
+  if (!(select instanceof HTMLSelectElement)) return;
+  const prevValue = select.value;
+  const options = ['<option value="">Saved Video Options</option>'];
+  for (const opt of state.videoOptions) {
+    options.push(`<option value="${opt.id}">${opt.label}</option>`);
+  }
+  select.innerHTML = options.join('');
+  if (prevValue && state.videoOptions.some((opt) => opt.id === prevValue)) {
+    select.value = prevValue;
+  }
+}
+
+function addCurrentAsVideoOption() {
+  if (!hasCurrentVideoSource()) return false;
+  const now = new Date();
+  const baseLabel = state.videoBinary?.name
+    || (state.videoUrl ? state.videoUrl.split('/').pop() || 'Video URL' : 'Current Video');
+  const label = `${baseLabel} (${now.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})`;
+  const option = {
+    id: `opt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    label,
+    videoSource: serializeVideoSource(state.videoBinary, state.videoUrl),
+    segments: serializeSegments(state.segments),
+    createdAt: now.toISOString()
+  };
+  state.videoOptions.unshift(option);
+  if (state.videoOptions.length > 20) state.videoOptions = state.videoOptions.slice(0, 20);
+  renderVideoOptionsSelect();
+  return true;
+}
+
+function loadVideoOptionById(optionId, videoEl) {
+  const option = state.videoOptions.find((opt) => opt.id === optionId);
+  if (!option) return false;
+  for (const seg of state.segments) {
+    if (seg.imageObjectUrl) revokeObjectUrl(seg.imageObjectUrl);
+  }
+  restoreVideoSource(option.videoSource, 'current');
+  state.segments = deserializeSegments(option.segments);
+  const overlayImg = document.getElementById('retard-overlay-image');
+  const overlayVid = document.getElementById('retard-overlay-video');
+  if (overlayImg instanceof HTMLImageElement) {
+    overlayImg.removeAttribute('src');
+    overlayImg.style.display = 'none';
+  }
+  if (overlayVid instanceof HTMLVideoElement) {
+    overlayVid.pause();
+    overlayVid.removeAttribute('src');
+    overlayVid.style.display = 'none';
+  }
+  applyCurrentVideoToElement(videoEl);
+  renderSegmentsTable();
+  updateOverlayPreview();
+  segmentCounter = state.segments.reduce((max, seg) => {
+    const m = /^seg_(\d+)$/.exec(String(seg.id || ''));
+    const n = m ? Number(m[1]) : 0;
+    return Math.max(max, Number.isFinite(n) ? n : 0);
+  }, segmentCounter) + 1;
+  return true;
+}
+
+function swapWithPreviousVideo(video) {
+  if (!hasPreviousVideoSource()) return false;
+  const currBinary = state.videoBinary;
+  const currUrl = state.videoUrl;
+  const currObj = state.videoObjectUrl;
+
+  state.videoBinary = state.previousVideoBinary;
+  state.videoUrl = state.previousVideoUrl;
+  state.videoObjectUrl = state.previousVideoObjectUrl;
+
+  state.previousVideoBinary = currBinary;
+  state.previousVideoUrl = currUrl;
+  state.previousVideoObjectUrl = currObj;
+
+  applyCurrentVideoToElement(video);
+  return true;
+}
+
 function openDraftDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DRAFT_DB_NAME, 1);
@@ -451,40 +767,18 @@ function scheduleDraftSave() {
       try {
         const payload = {
           savedAt: new Date().toISOString(),
-          videoSource: state.videoBinary
-            ? {
-                kind: 'binary',
-                name: state.videoBinary.name || 'input.mp4',
-                type: state.videoBinary.type || 'video/mp4',
-                blob: state.videoBinary.blob
-              }
-            : {
-                kind: 'url',
-                url: state.videoUrl || ''
-              },
+          videoSource: serializeVideoSource(state.videoBinary, state.videoUrl),
+          previousVideoSource: serializeVideoSource(state.previousVideoBinary, state.previousVideoUrl),
+          videoOptions: state.videoOptions.map((opt) => ({
+            id: opt.id,
+            label: opt.label,
+            createdAt: opt.createdAt,
+            videoSource: opt.videoSource,
+            segments: opt.segments
+          })),
           transitionMode: state.transitionMode,
           crossfadeSec: state.crossfadeSec,
-          segments: state.segments.map((seg) => ({
-            id: seg.id,
-            name: seg.name,
-            start: seg.start,
-            end: seg.end,
-            x: seg.x,
-            y: seg.y,
-            width: seg.width,
-            height: seg.height,
-            imageSource: seg.imageBinary
-              ? {
-                  kind: 'binary',
-                  name: seg.imageBinary.name || 'overlay.png',
-                  type: seg.imageBinary.type || 'image/png',
-                  blob: seg.imageBinary.blob
-                }
-              : {
-                  kind: 'url',
-                  url: seg.imageUrl || ''
-                }
-          }))
+          segments: serializeSegments(state.segments)
         };
         await idbSetDraft(payload);
         const savedAt = document.getElementById('retard-draft-saved-at');
@@ -511,42 +805,23 @@ async function loadDraft() {
   const parsed = await idbGetDraft();
   if (!parsed) return false;
   try {
-    if (parsed.videoSource?.kind === 'binary' && parsed.videoSource.blob) {
-      setVideoSourceFromBinary(parsed.videoSource.blob, parsed.videoSource.name, parsed.videoSource.type);
-    } else {
-      state.videoBinary = null;
-      state.videoUrl = parsed.videoSource?.url || state.videoUrl;
-      revokeObjectUrl(state.videoObjectUrl);
-      state.videoObjectUrl = '';
-    }
+    restoreVideoSource(parsed.videoSource, 'current');
+    restoreVideoSource(parsed.previousVideoSource, 'previous');
+    state.videoOptions = Array.isArray(parsed.videoOptions)
+      ? parsed.videoOptions
+        .filter((opt) => opt && opt.videoSource && Array.isArray(opt.segments))
+        .map((opt) => ({
+          id: String(opt.id || `opt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+          label: String(opt.label || 'Saved Video Option'),
+          createdAt: String(opt.createdAt || new Date().toISOString()),
+          videoSource: opt.videoSource,
+          segments: opt.segments
+        }))
+      : [];
     state.transitionMode = parsed.transitionMode === 'xfade' ? 'xfade' : 'cut';
     state.crossfadeSec = Math.max(0.05, Number(parsed.crossfadeSec) || 0.2);
     if (Array.isArray(parsed.segments) && parsed.segments.length) {
-      const merged = [];
-      for (let i = 0; i < parsed.segments.length; i += 1) {
-        const src = parsed.segments[i] || {};
-        const imageSource = src.imageSource || { kind: 'url', url: src.imageUrl || '' };
-        merged.push({
-          id: src.id || `seg_${i}`,
-          name: String(src.name || ''),
-          start: String(src.start || EMPTY_TIMECODE),
-          end: String(src.end || EMPTY_TIMECODE),
-          x: Math.max(0, Math.min(100, Number(src.x) || 50)),
-          y: Math.max(0, Math.min(100, Number(src.y) || 90)),
-          width: Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, Number(src.width) || 100)),
-          height: Math.max(0.1, Math.min(MAX_OVERLAY_PERCENT, Number(src.height) || 100)),
-          imageBinary: imageSource.kind === 'binary' && imageSource.blob
-            ? {
-                blob: imageSource.blob,
-                name: imageSource.name || 'overlay.png',
-                type: imageSource.type || 'image/png'
-              }
-            : null,
-          imageObjectUrl: '',
-          imageUrl: imageSource.kind === 'url' ? String(imageSource.url || '') : ''
-        });
-      }
-      state.segments = merged;
+      state.segments = deserializeSegments(parsed.segments);
     }
     const savedAt = document.getElementById('retard-draft-saved-at');
     if (savedAt) {
@@ -781,16 +1056,20 @@ function bindSegmentEvents() {
       String(f.type || '').startsWith('image/') || String(f.type || '').startsWith('video/')
     );
     if (droppedFile) {
-      assignImageBlobToSegment(
-        targetSeg,
-        droppedFile,
-        droppedFile.name || `dropped-${Date.now()}`,
-        droppedFile.type || 'application/octet-stream'
-      );
-      renderSegmentsTable();
-      updateOverlayPreview();
-      scheduleDraftSave();
-      setStatus(`Applied dropped media to "${targetSeg.name || 'segment'}"`);
+      const wasEmpty = !hasSegmentMedia(targetSeg);
+      (async () => {
+        assignImageBlobToSegment(
+          targetSeg,
+          droppedFile,
+          droppedFile.name || `dropped-${Date.now()}`,
+          droppedFile.type || 'application/octet-stream'
+        );
+        await maybeAutoPlaceNewImageOverlay(targetSeg, wasEmpty);
+        renderSegmentsTable();
+        updateOverlayPreview();
+        scheduleDraftSave();
+        setStatus(`Applied dropped media to "${targetSeg.name || 'segment'}"`);
+      })();
       return;
     }
 
@@ -799,11 +1078,15 @@ function bindSegmentEvents() {
       try {
         const parsed = new URL(droppedUrl);
         if (/^https?:$/i.test(parsed.protocol) || /^data:/i.test(parsed.protocol)) {
-          assignMediaUrlToSegment(targetSeg, parsed.toString());
-          renderSegmentsTable();
-          updateOverlayPreview();
-          scheduleDraftSave();
-          setStatus(`Applied dropped URL to "${targetSeg.name || 'segment'}"`);
+          const wasEmpty = !hasSegmentMedia(targetSeg);
+          (async () => {
+            assignMediaUrlToSegment(targetSeg, parsed.toString());
+            await maybeAutoPlaceNewImageOverlay(targetSeg, wasEmpty);
+            renderSegmentsTable();
+            updateOverlayPreview();
+            scheduleDraftSave();
+            setStatus(`Applied dropped URL to "${targetSeg.name || 'segment'}"`);
+          })();
         }
       } catch (_) {
         // Ignore non-URL text drops
@@ -841,6 +1124,20 @@ function bindSegmentEvents() {
   tbody.addEventListener('change', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.k === 'imageUrl') {
+      const id = target.dataset.id;
+      const seg = state.segments.find((s) => s.id === id);
+      if (!seg) return;
+      const wasEmpty = !hasSegmentMedia(seg);
+      (async () => {
+        assignMediaUrlToSegment(seg, target.value);
+        await maybeAutoPlaceNewImageOverlay(seg, wasEmpty);
+        renderSegmentsTable();
+        updateOverlayPreview();
+        scheduleDraftSave();
+      })();
+      return;
+    }
     if (target.dataset.k !== 'file') return;
     const id = target.dataset.id;
     const seg = state.segments.find((s) => s.id === id);
@@ -852,15 +1149,19 @@ function bindSegmentEvents() {
       scheduleDraftSave();
       return;
     }
-    assignImageBlobToSegment(
-      seg,
-      file,
-      file.name || 'overlay.bin',
-      file.type || 'application/octet-stream'
-    );
-    renderSegmentsTable();
-    updateOverlayPreview();
-    scheduleDraftSave();
+    const wasEmpty = !hasSegmentMedia(seg);
+    (async () => {
+      assignImageBlobToSegment(
+        seg,
+        file,
+        file.name || 'overlay.bin',
+        file.type || 'application/octet-stream'
+      );
+      await maybeAutoPlaceNewImageOverlay(seg, wasEmpty);
+      renderSegmentsTable();
+      updateOverlayPreview();
+      scheduleDraftSave();
+    })();
   });
 
   tbody.addEventListener('click', (event) => {
@@ -940,6 +1241,7 @@ function bindSegmentEvents() {
             setBgDevice('cpu');
             const inputBlob = await getSegmentImageBlob(seg);
             const output = await removeBackground(inputBlob, {
+              proxyToWorker: REMOVEBG_PROXY_TO_WORKER,
               progress: (key, current, total) => {
                 if (typeof current === 'number' && typeof total === 'number' && total > 0) {
                   const p = Math.max(0, Math.min(100, Math.round((current / total) * 100)));
@@ -1010,10 +1312,6 @@ function sanitizeFileStem(name, fallback = 'overlay') {
 }
 
 function imageTypeToExt(type) {
-  const t = String(type || '').toLowerCase();
-  if (t.includes('png')) return 'png';
-  if (t.includes('jpeg') || t.includes('jpg')) return 'jpg';
-  if (t.includes('webp')) return 'webp';
   return 'png';
 }
 
@@ -1051,9 +1349,7 @@ async function normalizeOverlayMediaForExport(seg) {
       const ext = (String(seg.imageBinary.name || '').toLowerCase().includes('.webm')) ? 'webm' : 'mp4';
       return { mediaKind, mediaName: `${baseStem}.${ext}`, mediaBuffer: await srcBlob.arrayBuffer() };
     }
-    const srcType = String(srcBlob.type || '').toLowerCase();
-    const supported = srcType.includes('png') || srcType.includes('jpeg') || srcType.includes('jpg') || srcType.includes('webp');
-    const outBlob = supported ? srcBlob : await convertImageBlobToPng(srcBlob);
+    const outBlob = await convertImageBlobToPng(srcBlob);
     const ext = imageTypeToExt(outBlob.type);
     return { mediaKind: 'image', mediaName: `${baseStem}.${ext}`, mediaBuffer: await outBlob.arrayBuffer() };
   }
@@ -1068,8 +1364,7 @@ async function normalizeOverlayMediaForExport(seg) {
       const ext = responseType.includes('webm') ? 'webm' : 'mp4';
       return { mediaKind: 'video', mediaName: `${baseStem}.${ext}`, mediaBuffer: await srcBlob.arrayBuffer() };
     }
-    const supported = responseType.includes('png') || responseType.includes('jpeg') || responseType.includes('jpg') || responseType.includes('webp');
-    const outBlob = supported ? srcBlob : await convertImageBlobToPng(srcBlob);
+    const outBlob = await convertImageBlobToPng(srcBlob);
     const ext = imageTypeToExt(outBlob.type);
     return { mediaKind: 'image', mediaName: `${baseStem}.${ext}`, mediaBuffer: await outBlob.arrayBuffer() };
   }
@@ -1215,7 +1510,16 @@ async function mount() {
               <label>Video URL <input id="retard-video-url" placeholder="https://..." /></label>
               <label>Or Upload Video <input id="retard-video-file" type="file" accept="video/*" /></label>
             </div>
-            <button id="retard-load-btn">Load Video</button>
+            <div class="retard-button-row">
+              <button id="retard-load-btn">Load Video</button>
+              <button id="retard-use-previous-btn">Use Previous Video</button>
+            </div>
+            <div class="retard-button-row">
+              <button id="retard-save-video-option-btn">New Video Option</button>
+              <select id="retard-video-options-select">
+                <option value="">Saved Video Options</option>
+              </select>
+            </div>
             <div class="retard-inline-row">
               <label>Transition
                 <select id="retard-transition-mode">
@@ -1256,6 +1560,9 @@ async function mount() {
 
   const video = document.getElementById('retard-video');
   const loadBtn = document.getElementById('retard-load-btn');
+  const usePreviousBtn = document.getElementById('retard-use-previous-btn');
+  const saveVideoOptionBtn = document.getElementById('retard-save-video-option-btn');
+  const videoOptionsSelect = document.getElementById('retard-video-options-select');
   const exportBtn = document.getElementById('retard-export-btn');
   const urlInput = document.getElementById('retard-video-url');
   const fileInput = document.getElementById('retard-video-file');
@@ -1357,32 +1664,65 @@ async function mount() {
   loadBtn?.addEventListener('click', () => {
     const url = String(urlInput?.value || '').trim();
     const file = fileInput?.files?.[0] || null;
-    state.videoUrl = url;
-    state.videoBinary = null;
-    state.segmentPreviewId = '';
-    state.segmentPreviewStartSec = null;
-    scheduleDraftSave();
-    if (file) {
-      setVideoSourceFromBinary(file, file.name || 'input.mp4', file.type || 'video/mp4');
-      video.src = state.videoObjectUrl;
-      state.segmentPreviewId = '';
-      state.segmentPreviewStartSec = null;
-      state.segmentPreviewEndSec = null;
-      setStatus('Loaded local video');
-      scheduleDraftSave();
-      return;
-    }
-    if (!url) {
+    if (!file && !url) {
       setStatus('Provide a video URL or file');
       return;
     }
+    if (hasCurrentVideoSource()) {
+      stashCurrentVideoAsPrevious();
+    }
+    state.segmentPreviewId = '';
+    state.segmentPreviewStartSec = null;
+    if (file) {
+      setVideoSourceFromBinary(file, file.name || 'input.mp4', file.type || 'video/mp4');
+      applyCurrentVideoToElement(video);
+      state.segmentPreviewId = '';
+      state.segmentPreviewStartSec = null;
+      state.segmentPreviewEndSec = null;
+      setStatus('Loaded local video (previous kept)');
+      scheduleDraftSave();
+      return;
+    }
+    state.videoBinary = null;
+    state.videoUrl = url;
     revokeObjectUrl(state.videoObjectUrl);
     state.videoObjectUrl = '';
     video.src = url;
     state.segmentPreviewId = '';
     state.segmentPreviewStartSec = null;
     state.segmentPreviewEndSec = null;
-    setStatus('Loaded video URL');
+    setStatus('Loaded video URL (previous kept)');
+    scheduleDraftSave();
+  });
+
+  usePreviousBtn?.addEventListener('click', () => {
+    if (!swapWithPreviousVideo(video)) {
+      setStatus('No previous video available');
+      return;
+    }
+    state.segmentPreviewId = '';
+    state.segmentPreviewStartSec = null;
+    state.segmentPreviewEndSec = null;
+    setStatus('Switched to previous video');
+    scheduleDraftSave();
+  });
+  saveVideoOptionBtn?.addEventListener('click', () => {
+    if (!addCurrentAsVideoOption()) {
+      setStatus('Load a video first');
+      return;
+    }
+    scheduleDraftSave();
+    setStatus('Saved video option');
+  });
+  videoOptionsSelect?.addEventListener('change', () => {
+    const optionId = String(videoOptionsSelect.value || '');
+    if (!optionId) return;
+    if (!loadVideoOptionById(optionId, video)) {
+      setStatus('Video option not found');
+      return;
+    }
+    scheduleDraftSave();
+    setStatus('Loaded video option');
   });
 
   exportBtn?.addEventListener('click', exportVideo);
@@ -1414,14 +1754,11 @@ async function mount() {
       return;
     }
     renderSegmentsTable();
+    renderVideoOptionsSelect();
     if (urlInput) urlInput.value = state.videoUrl;
     if (transitionSelect) transitionSelect.value = state.transitionMode;
     if (crossfadeInput) crossfadeInput.value = String(state.crossfadeSec);
-    if (state.videoBinary?.blob && state.videoObjectUrl) {
-      video.src = state.videoObjectUrl;
-    } else if (state.videoUrl) {
-      video.src = state.videoUrl;
-    }
+    applyCurrentVideoToElement(video);
     updateOverlayPreview();
     setStatus('Draft loaded');
   });
@@ -1475,16 +1812,20 @@ async function mount() {
       if (!file) return;
       event.preventDefault();
       const { idx, seg } = ensureTargetSeg();
-      assignImageBlobToSegment(
-        seg,
-        file,
-        file.name || `pasted-${Date.now()}.png`,
-        file.type || 'image/png'
-      );
-      renderSegmentsTable();
-      updateOverlayPreview();
-      scheduleDraftSave();
-      setStatus(`Pasted image into slot ${idx + 1} (${seg.name || 'segment'})`);
+      const wasEmpty = !hasSegmentMedia(seg);
+      (async () => {
+        assignImageBlobToSegment(
+          seg,
+          file,
+          file.name || `pasted-${Date.now()}.png`,
+          file.type || 'image/png'
+        );
+        await maybeAutoPlaceNewImageOverlay(seg, wasEmpty);
+        renderSegmentsTable();
+        updateOverlayPreview();
+        scheduleDraftSave();
+        setStatus(`Pasted image into slot ${idx + 1} (${seg.name || 'segment'})`);
+      })();
       return;
     }
 
@@ -1502,16 +1843,21 @@ async function mount() {
 
     event.preventDefault();
     const { idx, seg } = ensureTargetSeg();
-    assignMediaUrlToSegment(seg, url);
-    renderSegmentsTable();
-    updateOverlayPreview();
-    scheduleDraftSave();
-    setStatus(`Pasted image URL into slot ${idx + 1} (${seg.name || 'segment'})`);
+    const wasEmpty = !hasSegmentMedia(seg);
+    (async () => {
+      assignMediaUrlToSegment(seg, url);
+      await maybeAutoPlaceNewImageOverlay(seg, wasEmpty);
+      renderSegmentsTable();
+      updateOverlayPreview();
+      scheduleDraftSave();
+      setStatus(`Pasted image URL into slot ${idx + 1} (${seg.name || 'segment'})`);
+    })();
   });
 
   if (await loadDraft()) {
     renderSegmentsTable();
   }
+  renderVideoOptionsSelect();
   segmentCounter = state.segments.reduce((max, seg) => {
     const m = /^seg_(\d+)$/.exec(String(seg.id || ''));
     const n = m ? Number(m[1]) : 0;
@@ -1521,10 +1867,10 @@ async function mount() {
   if (transitionSelect) transitionSelect.value = state.transitionMode;
   if (crossfadeInput) crossfadeInput.value = String(state.crossfadeSec);
   if (state.videoBinary?.blob && state.videoObjectUrl) {
-    video.src = state.videoObjectUrl;
+    applyCurrentVideoToElement(video);
     setStatus(`Loaded draft video binary`);
   } else if (state.videoUrl) {
-    video.src = state.videoUrl;
+    applyCurrentVideoToElement(video);
     setStatus(`Loaded default video: ${state.videoUrl}`);
   }
   scheduleDraftSave();
