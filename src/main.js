@@ -1,4 +1,6 @@
-const isRetardRoute = window.location.pathname === '/retard' || window.location.pathname === '/retard/';
+const isRetardRoute = window.location.pathname === '/retard'
+  || window.location.pathname === '/retard/'
+  || window.location.pathname === '/retard/index.html';
 
 if (isRetardRoute) {
   import('./retard.css');
