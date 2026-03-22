@@ -8,6 +8,7 @@
     "build:data:watch": "node scripts/build-data.mjs --watch",
     "fetch:logos": "node scripts/fetch-logos.mjs && npm run optimize:logos && npm run build:data",
     "optimize:logos": "svgo -f public/logos --config=svgo.config.mjs",
+    "removebg:video": "python3 scripts/remove_bg_video.py",
     "deploy": "bash scripts/deploy.sh",
     "predev": "npm run build:data",
     "prebuild": "npm run build:data",
@@ -19,6 +20,7 @@
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.2",
+    "@imgly/background-removal": "^1.7.0",
     "js-yaml": "4.1.0"
   },
   "devDependencies": {

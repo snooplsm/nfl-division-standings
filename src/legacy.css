@@ -15,6 +15,14 @@
             padding: 20px;
         }
 
+        .preview-stage {
+            --preview-scale: 1;
+            width: calc(1080px * var(--preview-scale));
+            height: calc(1920px * var(--preview-scale));
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+
         .container {
             width: 1080px;
             height: 1920px;
@@ -22,6 +30,8 @@
             flex-direction: column;
             background: #000;
             overflow: hidden;
+            transform-origin: top left;
+            transform: scale(var(--preview-scale, 1));
         }
 
         .header {
@@ -615,6 +625,9 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
+            body {
+                align-items: flex-start;
+            }
             .title {
                 font-size: 32px;
             }

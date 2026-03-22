@@ -12,6 +12,8 @@
         const EMPTY_SVG_DATA_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
         const EXPORT_IMAGE_PLACEHOLDER = EMPTY_SVG_DATA_URL;
         const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+        const PREVIEW_WIDTH = 1080;
+        const PREVIEW_HEIGHT = 1920;
 
         // Custom panel state
         let customOrder = []; // team names in drag order
@@ -80,6 +82,20 @@
             if (!text.length) return null;
             const n = Number(text);
             return Number.isFinite(n) ? n : null;
+        }
+
+        function computePreviewScale() {
+            const maxW = Math.max(320, window.innerWidth - 20);
+            const maxH = Math.max(320, window.innerHeight - 20);
+            const scaleByWidth = maxW / PREVIEW_WIDTH;
+            const scaleByHeight = maxH / PREVIEW_HEIGHT;
+            return Math.max(0.25, Math.min(1, scaleByWidth, scaleByHeight));
+        }
+
+        function applyResponsivePreviewScale() {
+            const stage = document.getElementById('preview-stage');
+            if (!stage) return;
+            stage.style.setProperty('--preview-scale', String(computePreviewScale()));
         }
 
         function hasAnimationTargets() {
@@ -1517,10 +1533,15 @@
             const prevHistoryControlsDisplay = historyControls ? historyControls.style.display : '';
             const wasHistoryPopoverVisible = !!historyPopover && historyPopover.classList.contains('visible');
             const prevContainerPosition = containerElement.style.position;
+            const previewStage = document.getElementById('preview-stage');
+            const prevPreviewScale = previewStage ? (previewStage.style.getPropertyValue('--preview-scale') || '') : '';
 
             controls.style.display = 'none';
             if (historyControls) historyControls.style.display = 'none';
             if (historyPopover) historyPopover.classList.remove('visible');
+            if (previewStage) {
+                previewStage.style.setProperty('--preview-scale', '1');
+            }
 
             containerElement.style.position = 'relative';
             const exportUrlBadge = document.createElement('div');
@@ -1630,6 +1651,14 @@
                 }
                 if (exportTopProgress && exportTopProgress.parentNode) {
                     exportTopProgress.parentNode.removeChild(exportTopProgress);
+                }
+                if (previewStage) {
+                    if (prevPreviewScale) {
+                        previewStage.style.setProperty('--preview-scale', prevPreviewScale);
+                    } else {
+                        previewStage.style.removeProperty('--preview-scale');
+                    }
+                    applyResponsivePreviewScale();
                 }
                 containerElement.style.position = prevContainerPosition;
                 controls.style.display = prevControlsDisplay || 'flex';
@@ -1902,6 +1931,8 @@
             const prevHistoryControlsDisplay = historyControls ? historyControls.style.display : '';
             const wasHistoryPopoverVisible = !!historyPopover && historyPopover.classList.contains('visible');
             const prevContainerPosition = containerElement.style.position;
+            const previewStage = document.getElementById('preview-stage');
+            const prevPreviewScale = previewStage ? (previewStage.style.getPropertyValue('--preview-scale') || '') : '';
             let exportUrlBadge = null;
             let uiRestored = false;
             const restoreUI = () => {
@@ -1909,6 +1940,14 @@
                 uiRestored = true;
                 if (exportUrlBadge && exportUrlBadge.parentNode) {
                     exportUrlBadge.parentNode.removeChild(exportUrlBadge);
+                }
+                if (previewStage) {
+                    if (prevPreviewScale) {
+                        previewStage.style.setProperty('--preview-scale', prevPreviewScale);
+                    } else {
+                        previewStage.style.removeProperty('--preview-scale');
+                    }
+                    applyResponsivePreviewScale();
                 }
                 containerElement.style.position = prevContainerPosition;
                 controls.style.display = prevControlsDisplay || 'flex';
@@ -1928,6 +1967,9 @@
             }
             if (historyPopover) {
                 historyPopover.classList.remove('visible');
+            }
+            if (previewStage) {
+                previewStage.style.setProperty('--preview-scale', '1');
             }
 
             containerElement.style.position = 'relative';
@@ -2128,6 +2170,8 @@
                 document.addEventListener('click', () => {
                     document.getElementById('history-popover').classList.remove('visible');
                 });
+                applyResponsivePreviewScale();
+                window.addEventListener('resize', applyResponsivePreviewScale);
 
                 loadDivisionData().then(() => {
                     saveSettingsToStorage();

@@ -1,10 +1,15 @@
 let ffmpeg = null;
 let ffmpegReadyPromise = null;
 let frameCount = 0;
+let runId = 'run';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 const classWorkerURL = new URL('../ffmpeg/ffmpeg-class-worker.js', self.location.href).href;
 const coreURL = new URL('../ffmpeg/ffmpeg-core.js', self.location.href).href;
 const wasmURL = new URL('../ffmpeg/ffmpeg-core.wasm', self.location.href).href;
+
+async function safeDelete(engine, fileName) {
+  try { await engine.deleteFile(fileName); } catch (_) {}
+}
 
 async function ensureLoaded() {
   if (ffmpegReadyPromise) {
@@ -42,21 +47,25 @@ self.onmessage = async (event) => {
     const engine = await ensureLoaded();
     if (type === 'init') {
       frameCount = 0;
+      runId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       return;
     }
     if (type === 'frame') {
-      const name = `frame_${String(index).padStart(5, '0')}.png`;
+      const name = `${runId}_frame_${String(index).padStart(5, '0')}.png`;
+      await safeDelete(engine, name);
       await engine.writeFile(name, new Uint8Array(buffer));
       frameCount += 1;
       return;
     }
     if (type === 'encode') {
       if (!frameCount) throw new Error('No frames to encode');
+      const outputName = `${runId}_out.mp4`;
+      await safeDelete(engine, outputName);
       await engine.exec([
         '-framerate',
         String(fps || 20),
         '-i',
-        'frame_%05d.png',
+        `${runId}_frame_%05d.png`,
         '-crf',
         '21',
         '-preset',
@@ -69,9 +78,9 @@ self.onmessage = async (event) => {
         'yuv420p',
         '-map',
         '[v]',
-        'out.mp4'
+        outputName
       ]);
-      const out = await engine.readFile('out.mp4');
+      const out = await engine.readFile(outputName);
       const outBuffer = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
       self.postMessage({ type: 'done', buffer: outBuffer }, [outBuffer]);
       return;

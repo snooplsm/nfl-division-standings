@@ -63,24 +63,26 @@
       <button class="custom-apply-btn" id="custom-apply-btn">Apply</button>
     </div>
 
-    <div class="container">
-      <div class="header">
-        <div class="history-controls" id="history-controls">
-          <button id="history-toggle-btn" class="history-toggle-btn">Snapshots</button>
-          <div id="history-popover" class="history-popover"></div>
+    <div class="preview-stage" id="preview-stage">
+      <div class="container">
+        <div class="header">
+          <div class="history-controls" id="history-controls">
+            <button id="history-toggle-btn" class="history-toggle-btn">Snapshots</button>
+            <div id="history-popover" class="history-popover"></div>
+          </div>
+          <div class="controls">
+            <button id="edit-btn" class="edit-btn">Edit</button>
+            <button id="export-btn" class="export-btn">Export PNG</button>
+          </div>
+          <div class="logo-container">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Network Logo" id="network-logo" crossorigin="anonymous" />
+          </div>
+          <div class="title" id="page-title">NFL Meme War</div>
+          <div class="subtitle" id="page-subtitle"></div>
         </div>
-        <div class="controls">
-          <button id="edit-btn" class="edit-btn">Edit</button>
-          <button id="export-btn" class="export-btn">Export PNG</button>
-        </div>
-        <div class="logo-container">
-          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Network Logo" id="network-logo" crossorigin="anonymous" />
-        </div>
-        <div class="title" id="page-title">NFL Meme War</div>
-        <div class="subtitle" id="page-subtitle"></div>
-      </div>
 
-      <div class="teams-container" id="teams-container"></div>
+        <div class="teams-container" id="teams-container"></div>
+      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js"></script>
